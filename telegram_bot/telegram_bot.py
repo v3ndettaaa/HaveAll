@@ -44,7 +44,7 @@ def load_env():
 # Load environment keys before imports causing global loading
 load_env()
 
-from scrapper import monitor_and_sync
+from scrapper import monitor_and_sync, SUBSCRIPTION_LINKS
 
 # Logs
 logging.basicConfig(
@@ -460,24 +460,22 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             cf_count = len(cf_res.data) if cf_res.data else 0
 
             log_text = (
-                "📊 **【 HAVEALL BOT STATUS & LOGS 】** 📊\n"
-                "💬 *(همه برای تو)*\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🟢 **Database Matrix**: Connected (Supabase)\n"
-                f"📡 **Monitored Telegram Channels**: {ch_count}\n"
-                f"🔌 **Scraped High-Speed MTProto Proxies**: {px_count} units\n"
-                f"🧊 **Premium V2Ray/SS Tunnel Configs**: {cf_count} links\n"
-                "⚡ **Sync Interval**: Every 30 minutes (Automated)\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🕒 **Last Check**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-                "🌌 *Secure, super-sonic, censorship-free networking!*"
+                "HAVEALL STATUS LOGS\n"
+                "--------------------\n"
+                f"Database: Connected\n"
+                f"Monitored Channels: {ch_count}\n"
+                f"MTProto Proxies: {px_count}\n"
+                f"V2Ray Tunnels: {cf_count}\n"
+                "Sync: Every 30 minutes\n"
+                "--------------------\n"
+                f"UTC: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
             results.append(
                 InlineQueryResultArticle(
                     id="stats_log_portal",
-                    title="📊 View System Logs & Active Bot Status",
-                    description="Real-time database counts & synchronization metrics",
+                    title="Status & System Logs",
+                    description="Real-time counts & sync metrics",
                     input_message_content=InputTextMessageContent(
                         message_text=log_text,
                         parse_mode="Markdown"
@@ -493,7 +491,6 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             res = supabase.table("configs").select("*").limit(20).execute()
             configs = res.data or []
             if query and not is_log:
-                # Apply filter
                 configs = [c for c in configs if query in c["type"].lower() or query in (c.get("remarks") or "").lower() or query in c["raw_content"].lower()]
             
             for idx, c in enumerate(configs[:5]):
@@ -501,19 +498,14 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 results.append(
                     InlineQueryResultArticle(
                         id=f"inline_config_{c['id']}_{idx}",
-                        title=f"💎 Config: {c['type'].upper()} ({c['remarks'] or 'High Speed'})",
-                        description=f"Tap to share HaveAll premium configuration - (همه برای تو)",
+                        title=f"Config: {c['type'].upper()} ({c['remarks'] or 'High Speed'})",
+                        description="Share tunnel configuration profile",
                         input_message_content=InputTextMessageContent(
                             message_text=(
-                                "🌌 **【 H A V E A L L 】** 🌌\n"
-                                "💬 *(همه برای تو)*\n"
-                                "━━━━━━━━━━━━━━━━━━━━━\n"
-                                f"✨ *Protocol Type: {c['type'].upper()}*\n"
-                                f"🎯 *Remarks: {c['remarks'] or 'Ultra High Speed Tunnel'}*\n"
-                                "━━━━━━━━━━━━━━━━━━━━━\n"
-                                "👇 *Copy the config block below:* \n\n"
-                                f"```\n{raw}\n```\n\n"
-                                "🔌 *Enjoy high-speed uncensored network access!*"
+                                f"HAVEALL CONFIG | {c['type'].upper()}\n"
+                                f"Remarks: {c['remarks'] or 'High Speed'}\n"
+                                "--------------------\n"
+                                f"```\n{raw}\n```"
                             ),
                             parse_mode="Markdown"
                         )
@@ -528,29 +520,24 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             res = supabase.table("proxies").select("*").limit(20).execute()
             proxies = res.data or []
             if query and not is_log:
-                # Apply server filtering
                 proxies = [p for p in proxies if query in p["server"].lower() or query in p["tg_link"].lower()]
             
             for idx, p in enumerate(proxies[:5]):
                 results.append(
                     InlineQueryResultArticle(
                         id=f"inline_proxy_{p['id']}_{idx}",
-                        title=f"🌌 HaveAll MTProto Proxy #{p['id']}",
-                        description=f"Server: {p['server']} | Port: {p['port']}",
+                        title=f"MTProto Proxy #{p['id']}",
+                        description=f"Server: {p['server']}",
                         input_message_content=InputTextMessageContent(
                             message_text=(
-                                "🌌 **【 H A V E A L L 】** 🌌\n"
-                                "💬 *(همه برای تو)*\n"
-                                "━━━━━━━━━━━━━━━━━━━━━\n"
-                                f"🔌 *Click below to connect premium low-latency MTProto Proxy:*\n\n"
-                                f"🪐 **Server**: `{p['server']}`\n"
-                                f"🎯 **Port**: `{p['port']}`\n"
-                                f"🔐 **Secret**: `{p['secret']}`"
+                                "HAVEALL MTPROTO PROXY\n"
+                                f"Server: {p['server']}\n"
+                                f"Port: {p['port']}"
                             ),
                             parse_mode="Markdown"
                         ),
                         reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("have? 💎 (اتصال پروکسی)", url=p['tg_link'])]
+                            [InlineKeyboardButton("Connect Proxy", url=p['tg_link'])]
                         ])
                     )
                 )
@@ -563,19 +550,15 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         results.append(
             InlineQueryResultArticle(
                 id="guide_farsi",
-                title="📚 راهنمای اتصال سریع فیلترشکن (Farsi)",
-                description="نحوه استفاده از کانفیگ‌های تونل HaveAll (همه برای تو)",
+                title="راهنمای اتصال سریع (Farsi)",
+                description="آموزش نحوه استفاده از کانفیگ‌ها",
                 input_message_content=InputTextMessageContent(
                     message_text=(
-                        "🌌 **【 H A V E A L L 】** 🌌\n"
-                        "💬 *(همه برای تو)*\n"
-                        "━━━━━━━━━━━━━━━━━━━━━\n"
-                        "📚 **راهنمای نصب و اتصال فیلترشکن:**\n\n"
-                        "۱. ابتدا نرم‌افزار **Hiddify** یا **v2rayNG** را نصب کنید.\n"
-                        "۲. یکی از آدرس‌های کانفیگ دوقلو یا تکی را کپی کنید.\n"
-                        "۳. وارد نرم‌افزار شده و علامت (+) یا گزینه Import config from Clipboard را بزنید.\n"
-                        "۴. روی دکمه دایره اتصال کلیک کنید تا متصل شوید!\n\n"
-                        "💎 *با سرعت نور متصل شوید!*"
+                        "راهنمای اتصال HAVEALL:\n"
+                        "۱. برنامه Hiddify یا v2rayNG را نصب کنید.\n"
+                        "۲. کانفیگ را از چت کپی کنید.\n"
+                        "۳. در برنامه دکمه (+) یا Import from Clipboard را بزنید.\n"
+                        "۴. دکمه دایره اتصال را بزنید."
                     ),
                     parse_mode="Markdown"
                 )
@@ -586,19 +569,15 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         results.append(
             InlineQueryResultArticle(
                 id="guide_english",
-                title="📚 Quick VPN Connection Guide (English)",
-                description="How to import connection profiles and tunnels correctly",
+                title="Quick Connection Guide (English)",
+                description="How to import connection profiles",
                 input_message_content=InputTextMessageContent(
                     message_text=(
-                        "🌌 **【 H A V E A L L 】** 🌌\n"
-                        "💬 *(همه برای تو)*\n"
-                        "━━━━━━━━━━━━━━━━━━━━━\n"
-                        "📚 **VPN Connection Tutorial:**\n\n"
-                        "1. Install **Hiddify** or **v2rayNG** on your smartphone/PC.\n"
-                        "2. Copy any VPN config block shared by our bot.\n"
-                        "3. Click the (+) icon in your client App or import from Clipboard.\n"
-                        "4. Tap the connection button to start browsing securely.\n\n"
-                        "💎 *Enjoy crystal stable low-latency speeds!*"
+                        "HAVEALL Connection Guide:\n"
+                        "1. Install Hiddify or v2rayNG.\n"
+                        "2. Copy the config block from chat.\n"
+                        "3. Click (+) or Import from Clipboard in client app.\n"
+                        "4. Press connect button."
                     ),
                     parse_mode="Markdown"
                 )

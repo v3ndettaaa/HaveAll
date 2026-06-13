@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import com.example.data.SupabaseChannel
 import com.example.data.SupabaseConfig
 import com.example.data.SupabaseProxy
+import com.example.ui.theme.FarsiTypography
+import com.example.ui.theme.Typography
 
 // Supported Languages Enum
 enum class AppLanguage { EN, FA }
@@ -61,6 +64,14 @@ fun MainScreen(
     var activeLanguage by remember { mutableStateOf(AppLanguage.EN) }
     var selectedTab by remember { mutableStateOf(0) } // 0: Configs, 1: Proxies, 2: Channel Admin
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSplash by remember { mutableStateOf(true) }
+    var startAnimation by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        startAnimation = true
+        kotlinx.coroutines.delay(2200)
+        showSplash = false
+    }
 
     val configsState by viewModel.configsState.collectAsState()
     val proxiesState by viewModel.proxiesState.collectAsState()
@@ -113,8 +124,12 @@ fun MainScreen(
                  else listOf(Color(0xFFF3F6FD), Color(0xFFE9EFFB), Color(0xFFE4ECF8))
     )
 
-    Scaffold(
-        topBar = {
+    val dynamicTypography = if (activeLanguage == AppLanguage.FA) FarsiTypography else Typography
+
+    MaterialTheme(typography = dynamicTypography) {
+        Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -372,6 +387,128 @@ fun MainScreen(
             )
         }
     }
+
+        if (showSplash) {
+            val scale by animateFloatAsState(
+                targetValue = if (startAnimation) 1f else 0.5f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "scale"
+            )
+            val alpha by animateFloatAsState(
+                targetValue = if (startAnimation) 1f else 0f,
+                animationSpec = tween(700),
+                label = "alpha"
+            )
+            
+            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+            val animatedPulseScale by infiniteTransition.animateFloat(
+                initialValue = 0.96f,
+                targetValue = 1.04f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1200, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulse_scale"
+            )
+            val rotationDegrees by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "rotation"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (darkMode) SpaceDarkBg else Color(0xFFF3F6FD))
+                    .clickable(enabled = false) {}
+                    .testTag("splash_screen"),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.graphicsLayer(
+                        scaleX = scale * animatedPulseScale,
+                        scaleY = scale * animatedPulseScale,
+                        alpha = alpha
+                    )
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(160.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(rotationZ = rotationDegrees)
+                                .border(
+                                    width = 3.dp,
+                                    brush = Brush.sweepGradient(
+                                        listOf(NeonCyan, Color(0xFF9061F9), NeonCyan)
+                                    ),
+                                    shape = CircleShape
+                                )
+                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(105.dp)
+                                .background(
+                                    brush = Brush.radialGradient(
+                                        listOf(Color(0xFF00E5FF).copy(alpha = 0.35f), Color.Transparent)
+                                    ),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cloud,
+                                contentDescription = "HaveAll Logo",
+                                tint = if (darkMode) NeonCyan else ElectricBlue,
+                                modifier = Modifier.size(56.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(28.dp))
+                    
+                    Text(
+                        text = "HAVEALL",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 4.sp,
+                        color = if (darkMode) Color.White else Color(0xFF0A0F1D)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    Text(
+                        text = if (activeLanguage == AppLanguage.EN) "ALL TUNNEL CONFIGS FOR YOU" else "همه برای تو",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp,
+                        color = if (darkMode) Color.White.copy(alpha = 0.6f) else Color(0xFF0A0F1D).copy(alpha = 0.6f)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(48.dp))
+                    
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(34.dp),
+                        color = if (darkMode) NeonCyan else ElectricBlue,
+                        strokeWidth = 3.dp
+                    )
+                }
+            }
+        }
+    }
+}
 }
 
 // Configs Section

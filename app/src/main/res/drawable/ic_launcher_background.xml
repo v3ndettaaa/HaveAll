@@ -14,10 +14,9 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
-                <!-- Pure solid deep dark/black gradient matching elegant dark styles -->
-                <item android:offset="0.0" android:color="#FF000000" />
-                <item android:offset="0.5" android:color="#FF0A0A0A" />
-                <item android:offset="1.0" android:color="#FF111111" />
+                <item android:offset="0.0" android:color="#FF0D0E15" />
+                <item android:offset="0.5" android:color="#FF161824" />
+                <item android:offset="1.0" android:color="#FF1D1135" />
             </gradient>
         </aapt:attr>
     </path>

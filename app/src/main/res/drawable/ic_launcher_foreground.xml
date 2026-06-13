@@ -4,29 +4,52 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Outer shield element representing proxy networks and encryption -->
+
+    <!-- Outer atomic orbital ring representing global secure proxies -->
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FF00E676"
+        android:strokeColor="#FF818CF8"
         android:strokeWidth="2.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M54,18 C65,22 78,20 86,24 C86,48 80,72 54,90 C28,72 22,48 22,24 C30,20 43,22 54,18 Z" />
+        android:fillColor="#00000000"
+        android:pathData="M54,26 A28,28 0 1 1 53.9,26 Z" />
 
-    <!-- Interconnected node path representing lightning fast, secure tunneling connections -->
+    <!-- Horizontal orbit ellipse -->
     <path
-        android:fillColor="#FF00E676"
-        android:pathData="M54,34 C58.4,34 62,37.6 62,42 C62,44.5 60.8,46.7 59,48.1 L59,62 C59,64.2 57.2,66 55,66 L53,66 C50.8,66 49,64.2 49,62 L49,48.1 C47.2,46.7 46,44.5 46,42 C46,37.6 49.6,34 54,34 Z" />
+        android:strokeColor="#FFC084FC"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:pathData="M26,54 A28,12 0 1 1 26,54.1 Z" />
 
-    <!-- Center core pulse point -->
+    <!-- Vertical orbit ellipse -->
+    <path
+        android:strokeColor="#FFC084FC"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:pathData="M54,26 A12,28 0 1 1 54,26.1 Z" />
+
+    <!-- Interconnected bright glow points (Nodes/Servers) -->
+    <!-- Center top -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M54,39 C55.6,39 57,40.4 57,42 C57,43.6 55.6,45 54,45 C52.4,45 51,43.6 51,42 C51,40.4 52.4,39 54,39 Z" />
+        android:pathData="M54,23.5 A2.5,2.5 0 1 1 53.9,23.5 Z" />
 
-    <!-- Speed lightning accent signifying peak latency -->
+    <!-- Center bottom -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M65,58 L57,68 L62,68 L59,78 L67,68 L62,68 Z" />
+        android:pathData="M54,79.5 A2.5,2.5 0 1 1 53.9,79.5 Z" />
+
+    <!-- Center left -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M26,51.5 A2.5,2.5 0 1 1 25.9,51.5 Z" />
+
+    <!-- Center right -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M82,51.5 A2.5,2.5 0 1 1 81.9,51.5 Z" />
+
+    <!-- Super-speed cyberbolt representing bypass connections and lightning download speeds -->
+    <path
+        android:fillColor="#FF22D3EE"
+        android:pathData="M58,38 L46,54 L53,54 L50,70 L62,54 L55,54 Z" />
 
 </vector>
