@@ -44,11 +44,11 @@ To initialize the cluster locally or in cloud container hosting, save the creden
 
 ---
 
-## 🔔 Premium Activity Logging
-Never miss a user interaction again. The bot features an **organized, emoji-rich administrative Telegram logging system**:
-- **Real-Time Alerts**: Every `/start` command, direct message, channel moderation, manual scrape, or interactive dashboard button tap is formatted and dispatched directly to the admin inboxes listed in `ADMIN_IDS`.
-- **Beautiful Layouts**: Alerts arrive as clean cards displaying the user (linked directly to their Telegram profile), user ID, username, designated action tag, and precise UTC trigger times.
-- **Optimized Performance**: keystroke-based inline queries are recorded exclusively on the server shell console to avoid API rate limiting, while high-value events are routed to Telegram.
+## 📊 Server Terminal Logging
+The bot features clean, beautifully organized console logs right in your server terminal:
+- **Instant Activity Feed**: Key events like `/start`, interactive clicks, database scraper updates, and configurations requested are printed to the console standard output.
+- **Detailed Formats**: Includes user names, active Telegram IDs, actions taken, and precise UTC action times.
+- **Easy Inspection**: Readily readable with a simple docker command: `docker logs -f haveall_telegram_bot`
 
 ---
 

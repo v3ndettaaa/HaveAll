@@ -97,7 +97,7 @@ async def delete_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             logger.info(f"Failed to delete message: {e}")
 
 async def send_log_to_admins(context: ContextTypes.DEFAULT_TYPE, action: str, user) -> None:
-    """Logs the user interaction beautifully in the server console and Telegram chat for Admins."""
+    """Logs the user interaction beautifully in the server console."""
     username_str = f"@{user.username}" if user.username else "No Username"
     full_name_str = f"{user.first_name} {user.last_name or ''}".strip()
     
@@ -114,35 +114,6 @@ async def send_log_to_admins(context: ContextTypes.DEFAULT_TYPE, action: str, us
         action,
         datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
     )
-
-    if not ADMIN_TELEGRAM_IDS:
-        return
-    
-    # Avoid infinite log loops or redundant logging of admin panel navigation
-    if user.id in ADMIN_TELEGRAM_IDS and any(kw in action for kw in ["admin_panel", "adm_list", "adm_add_prompt", "adm_del_prompt"]):
-        return
-
-    mention_str = f"[{user.first_name}](tg://user?id={user.id})"
-    log_text = (
-        "🔔 **HAVEALL BOT ACTIVITY LOG** 🔔\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 **User:** {mention_str}\n"
-        f"🆔 **User ID:** `{user.id}`\n"
-        f"🏷 **Username:** {username_str}\n"
-        f"⚙️ **Action:** `{action}`\n"
-        f"📅 **Time (UTC):** `{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}`\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━"
-    )
-    
-    for admin_id in ADMIN_TELEGRAM_IDS:
-        try:
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=log_text,
-                parse_mode="Markdown"
-            )
-        except Exception as e:
-            logger.error(f"Failed to send activity log to admin {admin_id}: {e}")
 
 # Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
