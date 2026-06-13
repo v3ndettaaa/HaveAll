@@ -105,29 +105,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     keyboard = [
         [
-            InlineKeyboardButton("🌐 Get MTProto Proxies", callback_data="get_proxies"),
-            InlineKeyboardButton("🧊 Get 150 VPN Configs (.txt)", callback_data="get_configs"),
+            InlineKeyboardButton("Get MTProto Proxies", callback_data="get_proxies"),
+            InlineKeyboardButton("Get 150 VPN Configs", callback_data="get_configs"),
         ],
         [
-            InlineKeyboardButton("🧪 View Project Status", callback_data="status"),
-            InlineKeyboardButton("💎 Force Scrape / Refresh", callback_data="force_scrape"),
+            InlineKeyboardButton("View Project Status", callback_data="status"),
+            InlineKeyboardButton("Force Scrape", callback_data="force_scrape"),
         ],
         [
-            InlineKeyboardButton("⚙️ Admin Dashboard Panel", callback_data="admin_panel"),
+            InlineKeyboardButton("Admin Dashboard", callback_data="admin_panel"),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
         text=(
-            "🌌 **【 H A V E A L L 】** 🌌\n"
-            "💬 *(همه برای تو)*\n"
-            "━━━━━━━━━━━━━━━━━━━━━\n"
-            "🫧 *Welcome to the Glass-morphic Connectivity Portal!*\n"
-            "Real-time ultra-speed proxy node crawler and subscription injector.\n\n"
-            "✨ *All tunnels are automatically vetted and updated every 30 minutes.*\n"
-            "━━━━━━━━━━━━━━━━━━━━━\n"
-            "💎 Select your glass crystal element:"
+            "HAVEALL PORTAL\n"
+            "همه برای تو\n"
+            "--------------------\n"
+            "Real-time proxies and tunnel scraper.\n\n"
+            "Tunnels are verified and updated every 30 minutes.\n"
+            "--------------------\n"
+            "Select action:"
         ),
         reply_markup=reply_markup,
         parse_mode="Markdown"
@@ -153,34 +152,31 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             all_proxies = res.data
             if not all_proxies:
                 await query.edit_message_text(
-                    text="🧊 *No active glass nodes discovered in Supabase.*\nRun /scrape or trigger via dashboard.",
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Mirror Back", callback_data="back_main")]]),
+                    text="No active nodes found in Supabase.\nRun /scrape or build in app.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_main")]]),
                     parse_mode="Markdown"
-    )
+                )
                 return
 
             sample_size = min(20, len(all_proxies))
             selected = random.sample(all_proxies, sample_size)
 
-            # Elegant simplified layout: Just top message "enjoy", with a grid of beautiful "have?" link buttons
-            # and zero proxy info block to make it fully visual-glass.
             keyboard = []
             for idx, p in enumerate(selected, 1):
-                # Put in rows of 2 for grid symmetry
                 if len(keyboard) == 0 or len(keyboard[-1]) >= 2:
                     keyboard.append([])
-                keyboard[-1].append(InlineKeyboardButton(f"have? 💎", url=p['tg_link']))
+                keyboard[-1].append(InlineKeyboardButton("Connect", url=p['tg_link']))
 
-            keyboard.append([InlineKeyboardButton("🔙 Main Mirror", callback_data="back_main")])
+            keyboard.append([InlineKeyboardButton("Back", callback_data="back_main")])
             
             await query.edit_message_text(
-                text="🌌 **enjoy** 🫧",
+                text="Enjoy connection links:",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
         except Exception as e:
             logger.error(f"Error fetching proxies: {e}")
-            await query.edit_message_text("❌ Portal error. Ensure Supabase DB variables are configured successfully.")
+            await query.edit_message_text("Portal error. Verify database configuration.")
 
     elif data == "get_configs":
         try:
@@ -188,13 +184,12 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             all_configs = res.data
             if not all_configs:
                 await query.edit_message_text(
-                    text="🧊 *No premium VPN subscription links have been scraped yet.*",
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Main Mirror", callback_data="back_main")]]),
+                    text="No configs found in Supabase.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_main")]]),
                     parse_mode="Markdown"
                 )
                 return
 
-            # Mix of exactly 150 configs as requested!
             sample_size = min(150, len(all_configs))
             sampled_items = random.sample(all_configs, sample_size)
             
@@ -205,17 +200,14 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(file_content)
 
-            # Reply to the user
             await query.message.reply_document(
                 document=open(file_path, "rb"),
                 filename=file_path,
                 caption=(
-                    "🧪 **【 MIXED GLASS TUNNEL BUNDLE 】**\n"
-                    "━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"💎 Extracted exactly **{sample_size}** fresh high-encryption nodes "
-                    "sampled randomly from official subscription pools.\n\n"
-                    "👉 Import as subscription list directly into **Hiddify**, **v2rayNG**, "
-                    "or **Streisand** and enjoy the zero-latency bypass!"
+                    "HAVEALL CONFIGS BUNDLE\n"
+                    "--------------------\n"
+                    f"Extracted {sample_size} configs.\n"
+                    "Import into Hiddify or v2rayNG client app."
                 ),
                 parse_mode="Markdown"
             )
@@ -225,11 +217,10 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
         except Exception as e:
             logger.error(f"Error sending configs file: {e}")
-            await query.edit_message_text(f"❌ Portal failed to generate config bundle: {e}")
+            await query.edit_message_text(f"Failed to generate config bundle: {e}")
 
     elif data == "status":
         try:
-            # Query stats
             ch_res = supabase.table("monitored_channels").select("*").execute()
             ch_count = len(ch_res.data) if ch_res.data else 0
             
@@ -239,71 +230,66 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             cf_res = supabase.table("configs").select("id").execute()
             cf_count = len(cf_res.data) if cf_res.data else 0
 
-            # Beautiful glassy progress/stat text
             await query.edit_message_text(
                 text=(
-                    "🧪 **【 PORTAL STATUS INTERFACE 】** 🧪\n"
-                    "━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"📡 Monitored Subscriptions: **{len(SUBSCRIPTION_LINKS)} channels**\n"
-                    f"🔌 Registered Custom Channels: **{ch_count}**\n"
-                    f"🧊 High-Performance Proxies: **{px_count} units**\n"
-                    f"🔋 Premium Shadowsocks/VLess: **{cf_count} links**\n"
-                    "━━━━━━━━━━━━━━━━━━━━━\n"
-                    "🫧 Sync Status: *Online*\n"
-                    "⏰ Automated Scraper Interval: **Every 30 Minutes**\n\n"
-                    "🌈 *Powered by Glassmorphism design and supersonic speeds.*"
+                    "HAVEALL STATUS\n"
+                    "--------------------\n"
+                    f"Monitored: {len(SUBSCRIPTION_LINKS)} channels\n"
+                    f"Custom Channels: {ch_count}\n"
+                    f"MTProto Proxies: {px_count}\n"
+                    f"Configs: {cf_count}\n"
+                    "--------------------\n"
+                    "Status: Online\n"
+                    "Interval: 30 Min"
                 ),
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Main Mirror", callback_data="back_main")]]),
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_main")]]),
                 parse_mode="Markdown"
             )
         except Exception as e:
-            await query.edit_message_text(f"❌ Portal failed to read stats: {e}")
+            await query.edit_message_text(f"Failed to read stats: {e}")
 
     elif data == "force_scrape":
-        # Check if user is admin
         if user_id not in ADMIN_TELEGRAM_IDS:
-            await query.answer("🛑 Access restricted to Glass Administrators!", show_alert=True)
+            await query.answer("Access restricted to Administrators!", show_alert=True)
             return
 
-        await query.edit_message_text("🫧 **[SCRAPER OPERATION ACTIVE]**\nRefreshing internal matrices, purging stale caches...")
+        await query.edit_message_text("Scraper operation active. Synchronizing...")
         try:
             await monitor_and_sync()
             await query.edit_message_text(
                 text=(
-                    "✅ **【 SYNCHRONIZATION SUCCESSFUL 】**\n"
-                    "━━━━━━━━━━━━━━━━━━━━━\n"
-                    "All proxy nodes and config files have been completely refreshed "
-                    "from official secure sources and updated across the cluster."
+                    "SYNCHRONIZATION SUCCESSFUL\n"
+                    "--------------------\n"
+                    "All proxy nodes and config files refreshed."
                 ),
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Main Mirror", callback_data="back_main")]]),
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_main")]]),
                 parse_mode="Markdown"
             )
         except Exception as e:
-            await query.edit_message_text(f"❌ portal compilation failed: {e}")
+            await query.edit_message_text(f"Sync failed: {e}")
 
     elif data == "admin_panel":
         if user_id not in ADMIN_TELEGRAM_IDS:
-            await query.answer("🛑 Access restricted to Administrators!", show_alert=True)
+            await query.answer("Access restricted to Administrators!", show_alert=True)
             return
 
         keyboard = [
             [
-                InlineKeyboardButton("📋 List Custom Proxy Channels", callback_data="adm_list"),
+                InlineKeyboardButton("List Proxy Channels", callback_data="adm_list"),
             ],
             [
-                InlineKeyboardButton("➕ Add Proxy Channel", callback_data="adm_add_prompt"),
-                InlineKeyboardButton("➖ Delete Proxy Channel", callback_data="adm_del_prompt"),
+                InlineKeyboardButton("Add Proxy Channel", callback_data="adm_add_prompt"),
+                InlineKeyboardButton("Delete Proxy Channel", callback_data="adm_del_prompt"),
             ],
             [
-                InlineKeyboardButton("🔙 Main Mirror", callback_data="back_main"),
+                InlineKeyboardButton("Back", callback_data="back_main"),
             ]
         ]
         await query.edit_message_text(
             text=(
-                "🛠️ **【 GLASS ADMIN PANEL 】** 🛠️\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "Control system parameters, monitored channel pools, and sync triggers.\n"
-                "Please choose an administrative matrix below:"
+                "HAVEALL ADMIN CONTROL\n"
+                "--------------------\n"
+                "Manage database channels and synchronization parameters."
             ),
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
@@ -313,55 +299,54 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             res = supabase.table("monitored_channels").select("*").execute()
             channels = [row["username"] for row in res.data]
-            text = "📋 **【 MONITORED CHANNELS MATRIX 】**\n━━━━━━━━━━━━━━━━━━━━━\n"
+            text = "MONITORED CHANNELS\n--------------------\n"
             if not channels:
-                text += "_No custom channels registered. Defaults are currently active._"
+                text += "No custom channels registered."
             else:
                 for idx, ch in enumerate(channels, 1):
                     text += f"{idx}. `@{ch}`\n"
             
             await query.edit_message_text(
                 text=text,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin Mirror", callback_data="admin_panel")]]),
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="admin_panel")]]),
                 parse_mode="Markdown"
             )
         except Exception as e:
-            await query.edit_message_text(f"❌ DB fetch failed: {e}")
+            await query.edit_message_text(f"DB fetch failed: {e}")
 
     elif data == "adm_add_prompt":
         await query.edit_message_text(
-            text="✍️ To register a custom proxy channel username, please type:\n\n`/addchannel [username_without_@]` (e.g. `/addchannel ProxyFree_Ru`)\n\nThis will write immediately into Supabase database.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin Mirror", callback_data="admin_panel")]]),
+            text="Type: /addchannel [username] (without @)",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="admin_panel")]]),
             parse_mode="Markdown"
         )
 
     elif data == "adm_del_prompt":
         await query.edit_message_text(
-            text="✍️ To remove a custom proxy channel from database monitor, please type:\n\n`/removechannel [username]`\n\nThe configuration will update in the next 30 minutes cycle.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin Mirror", callback_data="admin_panel")]]),
+            text="Type: /removechannel [username] (without @)",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="admin_panel")]]),
             parse_mode="Markdown"
         )
 
     elif data == "back_main":
         keyboard = [
             [
-                InlineKeyboardButton("🌐 Get MTProto Proxies", callback_data="get_proxies"),
-                InlineKeyboardButton("🧊 Get 150 VPN Configs (.txt)", callback_data="get_configs"),
+                InlineKeyboardButton("Get MTProto Proxies", callback_data="get_proxies"),
+                InlineKeyboardButton("Get 150 VPN Configs", callback_data="get_configs"),
             ],
             [
-                InlineKeyboardButton("🧪 View Project Status", callback_data="status"),
-                InlineKeyboardButton("💎 Force Scrape / Refresh", callback_data="force_scrape"),
+                InlineKeyboardButton("View Project Status", callback_data="status"),
+                InlineKeyboardButton("Force Scrape", callback_data="force_scrape"),
             ],
             [
-                InlineKeyboardButton("⚙️ Admin Dashboard Panel", callback_data="admin_panel"),
+                InlineKeyboardButton("Admin Dashboard", callback_data="admin_panel"),
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(
             text=(
-                "👋 **【 GLASS CONNECTIVITY MAIN 】**\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "Select what you would like to retrieve from the glass portal:"
+                "HAVEALL PORTAL\n"
+                "Select what you would like to retrieve:"
             ),
             reply_markup=reply_markup,
             parse_mode="Markdown"
@@ -371,65 +356,64 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 async def add_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     if user_id not in ADMIN_TELEGRAM_IDS:
-        await update.message.reply_text("❌ Portal Admin access required!")
+        await update.message.reply_text("Portal Admin access required!")
         await delete_user_message(update, context)
         return
 
     if not context.args:
-        await update.message.reply_text("✍️ Format: `/addchannel [username_without_@]` (e.g. /addchannel ProxyFree_Ru)")
+        await update.message.reply_text("Format: /addchannel [username] (without @)")
         await delete_user_message(update, context)
         return
 
     ch_name = context.args[0].replace("@", "").strip()
     try:
         supabase.table("monitored_channels").insert({"username": ch_name}).execute()
-        await update.message.reply_text(f"✅ Registered channel `@{ch_name}` into Supabase database successfully.")
+        await update.message.reply_text(f"Registered channel @{ch_name} successfully.")
     except Exception as e:
-        await update.message.reply_text(f"❌ Portal failed to register channel. (Error: {e})")
+        await update.message.reply_text(f"Failed to register channel: {e}")
     await delete_user_message(update, context)
 
 async def remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     if user_id not in ADMIN_TELEGRAM_IDS:
-        await update.message.reply_text("❌ Portal Admin access required!")
+        await update.message.reply_text("Portal Admin access required!")
         await delete_user_message(update, context)
         return
 
     if not context.args:
-        await update.message.reply_text("✍️ Format: `/removechannel [username]`")
+        await update.message.reply_text("Format: /removechannel [username]")
         await delete_user_message(update, context)
         return
 
     ch_name = context.args[0].replace("@", "").strip()
     try:
         supabase.table("monitored_channels").delete().eq("username", ch_name).execute()
-        await update.message.reply_text(f"✅ Removed channel `@{ch_name}` from system cache.")
+        await update.message.reply_text(f"Removed channel @{ch_name}.")
     except Exception as e:
-        await update.message.reply_text(f"❌ Deletion error: {e}")
+        await update.message.reply_text(f"Deletion error: {e}")
     await delete_user_message(update, context)
 
 async def scrape_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Manual glass structured /scrape command as requested: everything glassmorphic."""
     user_id = update.effective_user.id
     if user_id not in ADMIN_TELEGRAM_IDS:
-        await update.message.reply_text("🛑 Access restricted to Glass Administrators!")
+        await update.message.reply_text("Access restricted to Administrators!")
         await delete_user_message(update, context)
         return
 
-    msg = await update.message.reply_text("🫧 **[Manual Sync Initiated]**\nPurging state matrices, analyzing GitHub subscriptions...", parse_mode="Markdown")
+    msg = await update.message.reply_text("Manual sync initiated. Synchronizing...", parse_mode="Markdown")
     try:
         await monitor_and_sync()
         await msg.edit_text(
             text=(
-                "🧊 **【 MANUAL SCRAPE COMPLETED 】**\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "🌐 Sync Operation: *Successful*\n"
-                "🌌 Enjoy fresh glass connections now!"
+                "MANUAL SCRAPE COMPLETED\n"
+                "--------------------\n"
+                "Sync Operation: Successful\n"
+                "Fresh connections synced."
             ),
             parse_mode="Markdown"
         )
     except Exception as e:
-        await msg.edit_text(f"❌ Sync failed: {e}")
+        await msg.edit_text(f"Sync failed: {e}")
     await delete_user_message(update, context)
 
 # Inline Query Handler for Inline Chatting!
@@ -591,11 +575,11 @@ async def private_chat_message_handler(update: Update, context: ContextTypes.DEF
     if update.effective_chat and update.effective_chat.type == "private":
         await update.message.reply_text(
             text=(
-                "🌌 **【 H A V E A L L 】** 🌌\n"
-                "💬 *(همه برای تو)*\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "HAVEALL PORTAL\n"
+                "همه برای تو\n"
+                "--------------------\n"
                 "Please click one of the interactive dashboard buttons, use the commands, or share configs in inline mode!\n\n"
-                "To access my main menu, type `/start`"
+                "To access main menu, type /start"
             ),
             parse_mode="Markdown"
         )
@@ -603,7 +587,7 @@ async def private_chat_message_handler(update: Update, context: ContextTypes.DEF
 
 # Periodic Scraper trigger + Group broadcast
 async def run_scraper_task(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Scrapes data and posts structured glass announcements to all registered group chats."""
+    """Scrapes data and posts structured announcements to all registered group chats."""
     logger.info("Executing periodic scrape and broad group notifications...")
     try:
         await monitor_and_sync()
@@ -617,17 +601,13 @@ async def run_scraper_task(context: ContextTypes.DEFAULT_TYPE) -> None:
                     await context.bot.send_message(
                         chat_id=chat_id,
                         text=(
-                            "🌌 **【 H A V E A L L 】** 🌌\n"
-                            "💬 *(همه برای تو)*\n"
-                            "━━━━━━━━━━━━━━━━━━━━━\n"
-                            "🫧 **GLOBAL NETWORK REFRESH** 🫧\n"
+                            "HAVEALL PORTAL SYNCED\n"
+                            "همه برای تو\n"
+                            "--------------------\n"
                             "The synchronization engine has updated all internal directories.\n\n"
-                            "💎 **Updates:**\n"
-                            "🎯 *150 Fresh premium configs merged.*\n"
-                            "🔌 *Full-throttle custom MTProto nodes synced.*\n"
-                            "━━━━━━━━━━━━━━━━━━━━━\n"
-                            "🌐 Status: *Operational* | Acc: *Superior*\n"
-                            "✨ enjoy!"
+                            "Updates:\n"
+                            "150 Fresh configs merged.\n"
+                            "MTProto nodes synced."
                         ),
                         parse_mode="Markdown"
                     )

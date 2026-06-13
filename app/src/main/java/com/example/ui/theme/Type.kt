@@ -28,9 +28,9 @@ val OutfitFamily = FontFamily(
 )
 
 val VazirmatnFamily = FontFamily(
-    Font(googleFont = VazirmatnFont, fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = VazirmatnFont, fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = VazirmatnFont, fontProvider = fontProvider, weight = FontWeight.Bold)
+    androidx.compose.ui.text.font.Font(resId = R.font.vazir_regular, weight = FontWeight.Normal),
+    androidx.compose.ui.text.font.Font(resId = R.font.vazir_medium, weight = FontWeight.Medium),
+    androidx.compose.ui.text.font.Font(resId = R.font.vazir_bold, weight = FontWeight.Bold)
 )
 
 // Dynamic typography selection. By default, body uses Vazirmatn for Persian, headings use Outfit.

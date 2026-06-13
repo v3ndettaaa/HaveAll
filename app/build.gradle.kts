@@ -1,3 +1,6 @@
+import java.net.URL
+import java.net.HttpURLConnection
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -120,3 +123,46 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register("downloadVazirFonts") {
+  notCompatibleWithConfigurationCache("Downloads fonts dynamically from internet")
+  val fontsDir = file("src/main/res/font")
+  outputs.dir(fontsDir)
+  doLast {
+    if (!fontsDir.exists()) {
+      fontsDir.mkdirs()
+    }
+    val fontUrls = mapOf(
+      "vazir_regular.ttf" to "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Regular.ttf",
+      "vazir_medium.ttf" to "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Medium.ttf",
+      "vazir_bold.ttf" to "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Bold.ttf"
+    )
+    fontUrls.forEach { (filename, urlString) ->
+      val destFile = file("src/main/res/font/$filename")
+      if (!destFile.exists()) {
+        println("Downloading offline font: $filename")
+        try {
+          val url = URL(urlString)
+          val connection = url.openConnection() as HttpURLConnection
+          connection.requestMethod = "GET"
+          connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+          connection.connectTimeout = 30000
+          connection.readTimeout = 30000
+          connection.inputStream.use { input ->
+            destFile.outputStream().use { output ->
+              input.copyTo(output)
+            }
+          }
+          println("Successfully downloaded offline font: $filename")
+        } catch (e: Exception) {
+          System.err.println("Failed to download offline font $filename: " + e.toString())
+        }
+      }
+    }
+  }
+}
+
+tasks.matching { it.name == "preBuild" }.all {
+  dependsOn("downloadVazirFonts")
+}
+
