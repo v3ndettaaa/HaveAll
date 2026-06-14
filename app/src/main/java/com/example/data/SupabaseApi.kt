@@ -33,9 +33,21 @@ data class SupabaseChannel(
     val created_at: String = ""
 )
 
+data class SupabaseSubscription(
+    val id: Long = 0,
+    val url: String = "",
+    val remarks: String? = null,
+    val created_at: String = ""
+)
+
 // Request body for inserting channels
 data class AddChannelRequest(
     val username: String
+)
+
+data class AddSubscriptionRequest(
+    val url: String,
+    val remarks: String
 )
 
 interface SupabaseApi {
@@ -81,6 +93,30 @@ interface SupabaseApi {
         @Header("apikey") apiKey: String,
         @Header("Authorization") authHeader: String,
         @Query("username") username: String
+    )
+
+    // Admin subscription pools controls
+    @GET("rest/v1/subscriptions")
+    suspend fun getSubscriptions(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authHeader: String,
+        @Query("select") select: String = "*",
+        @Query("order") order: String = "remarks.asc"
+    ): List<SupabaseSubscription>
+
+    @POST("rest/v1/subscriptions")
+    suspend fun addSubscription(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authHeader: String,
+        @Header("Prefer") prefer: String = "return=representation",
+        @Body request: AddSubscriptionRequest
+    ): List<SupabaseSubscription>
+
+    @DELETE("rest/v1/subscriptions")
+    suspend fun deleteSubscription(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authHeader: String,
+        @Query("url") url: String
     )
 }
 

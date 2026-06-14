@@ -4,6 +4,8 @@ import base64
 import random
 import asyncio
 from datetime import datetime
+import html
+from urllib.parse import unquote
 import httpx
 from supabase import create_client, Client
 
@@ -41,7 +43,7 @@ CONFIG_RE = re.compile(
     r"\b((?:vmess|vless|ss|ssr|trojan|hysteria|hysteria2|tuic|hy2)://[^\s\"'<>]+)"
 )
 
-# Static Subscription Txt Links
+# Static Subscription Txt Links (used as defaults if database is empty)
 SUBSCRIPTION_LINKS = [
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile-2.txt",
@@ -69,6 +71,26 @@ async def fetch_monitored_proxy_channels():
     except Exception as e:
         print(f"Error accessing Supabase monitored_channels: {e}")
         return PROXY_CHANNELS
+
+async def fetch_messages_count_setting() -> int:
+    """Fetches the number of last messages to scan from Supabase settings."""
+    try:
+        res = supabase.table("settings").select("value").eq("key", "messages_count").execute()
+        if res.data:
+            return int(res.data[0]["value"])
+    except Exception as e:
+        print(f"Error fetching messages_count setting: {e}")
+    return 10  # Fallback to last 10 messages
+
+async def fetch_db_subscriptions() -> list:
+    """Fetches subscription links dynamically from Supabase."""
+    try:
+        res = supabase.table("subscriptions").select("url", "remarks").execute()
+        if res.data:
+            return [{"url": row["url"], "remarks": row.get("remarks") or "Sub Link"} for row in res.data]
+    except Exception as e:
+        print(f"Error fetching subscriptions from Supabase: {e}")
+    return [{"url": u, "remarks": "Static Sub"} for u in SUBSCRIPTION_LINKS]
 
 async def wipe_prev_data():
     """Wipes existing proxy and config tables to ensure fresh non-expired options."""
@@ -162,9 +184,10 @@ def build_v2ray_from_dict(d: dict) -> str:
     return None
 
 async def monitor_and_sync():
-    """Scrapes both static subscription lists and MTProto Telegram proxy channels, syncing with Database."""
+    """Scrapes both dynamic subscription lists and MTProto Telegram proxy channels, syncing with Database."""
     print("💎 Glassmorphism Sync Engine Initiated!")
     proxy_channels = await fetch_monitored_proxy_channels()
+    db_subs = await fetch_db_subscriptions()
     await wipe_prev_data()
 
     configs_extracted = []
@@ -175,11 +198,13 @@ async def monitor_and_sync():
     }
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=20.0) as client:
-        # Part 1. Extract Configs from the requested 11 subscription links!
-        print(f"📥 Loading {len(SUBSCRIPTION_LINKS)} VPN subscription lists...")
-        for sub_url in SUBSCRIPTION_LINKS:
+        # Part 1. Extract Configs from Supabase-registered subscription lists dynamic pool
+        print(f"📥 Loading {len(db_subs)} dynamic VPN subscription lists...")
+        for sub_item in db_subs:
+            sub_url = sub_item["url"]
+            source_name = sub_item["remarks"] or "Sub List"
             try:
-                print(f"🔗 Fetching: {sub_url}")
+                print(f"🔗 Fetching: {sub_url} (Ref: {source_name})")
                 res = await client.get(sub_url)
                 if res.status_code != 200:
                     print(f"⚠️ Failed to download {sub_url} (HTTP {res.status_code})")
@@ -216,17 +241,6 @@ async def monitor_and_sync():
                     elif "tuic://" in lower_conf:
                         config_type = "tuic"
 
-                    # Shorter remark to reference source beautifully
-                    source_name = "GitHub Subscription"
-                    if "russia" in sub_url.lower():
-                        source_name = "Russian Mobile List"
-                    elif "masir-sefid" in sub_url.lower() or "Masir_Sefid" in raw_text:
-                        source_name = "Masir_Sefid"
-                    elif " ThomasJasper " in sub_url.lower():
-                        source_name = "Jasper Cat List"
-                    elif "free2config" in sub_url.lower():
-                        source_name = "Fragment List"
-
                     remarks = f"Ref: {source_name}"
 
                     if config_clean not in [c["raw_content"] for c in configs_extracted]:
@@ -239,8 +253,9 @@ async def monitor_and_sync():
             except Exception as e:
                 print(f"❌ Error fetching subscription {sub_url}: {e}")
 
-        # Part 2. Extract MTProto Proxies from proxy Telegram channels
-        print(f"📥 Loading {len(proxy_channels)} MTProto proxy Telegram channels...")
+        # Part 2. Extract MTProto & Dynamic Tunneled Configs from all monitored Telegram channels
+        limit = await fetch_messages_count_setting()
+        print(f"📥 Scanning last {limit} messages in {len(proxy_channels)} monitored Telegram channels...")
         for channel in proxy_channels:
             url = f"https://t.me/s/{channel}"
             try:
@@ -249,10 +264,22 @@ async def monitor_and_sync():
                 if response.status_code != 200:
                     continue
 
-                html = response.text
+                # Fully decode HTML entities and percent-encoded URLs to capture buttons/markdown/inline items
+                raw_html = response.text
+                decoded_html = unquote(html.unescape(raw_html))
 
-                # Parse MTProto Proxies
-                for server, port, secret in MTPROTO_RE.findall(html):
+                # Split page into individual message containers to apply precise limits
+                message_blocks = re.split(r'<div class="[^"]*tgme_widget_message_wrap', decoded_html)
+                posts = message_blocks[1:]
+                
+                # Slice target check count to comply with Admin wishes
+                selected_posts = posts[-limit:] if len(posts) > limit else posts
+                
+                # Join to build a single text block of exactly N target posts
+                content_to_scan = "\n---POST-BOUNDARY---\n".join(selected_posts) if selected_posts else decoded_html
+
+                # Extract MTProto proxies
+                for server, port, secret in MTPROTO_RE.findall(content_to_scan):
                     server_clean = server.strip()
                     port_clean = port.strip()
                     secret_clean = secret.strip()
@@ -264,6 +291,32 @@ async def monitor_and_sync():
                             "port": int(port_clean),
                             "secret": secret_clean,
                             "tg_link": tg_link
+                        })
+
+                # Also grab any embedded V2ray/Vless configs listed in channel messages!
+                for link in CONFIG_RE.findall(content_to_scan):
+                    config_clean = link.replace("&amp;", "&").split('"')[0].split("'")[0].split("<")[0].split("\\")[0].strip()
+                    if not config_clean:
+                        continue
+                    
+                    config_type = "vmess"
+                    lower_conf = config_clean.lower()
+                    if "vless://" in lower_conf:
+                        config_type = "vless"
+                    elif "ss://" in lower_conf:
+                        config_type = "shadowsocks"
+                    elif "hysteria" in lower_conf or "hy2://" in lower_conf:
+                        config_type = "hysteria"
+                    elif "trojan://" in lower_conf:
+                        config_type = "trojan"
+                    elif "tuic://" in lower_conf:
+                        config_type = "tuic"
+
+                    if config_clean not in [c["raw_content"] for c in configs_extracted]:
+                        configs_extracted.append({
+                            "type": config_type,
+                            "raw_content": config_clean,
+                            "remarks": f"Ref: @{channel}"
                         })
 
             except Exception as e:

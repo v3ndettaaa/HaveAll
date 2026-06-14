@@ -122,8 +122,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat.type in ["group", "supergroup"]:
         save_group_chat(update.effective_chat.id)
 
+    # Track caller details in bot_users table safely
+    try:
+        user = update.effective_user
+        supabase.table("bot_users").upsert({
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name
+        }).execute()
+    except Exception as e:
+        logger.error(f"Error registering user in bot_users: {e}")
+
     await send_log_to_admins(context, "Opened Main Menu (/start)", update.effective_user)
 
+    is_admin = update.effective_user.id in ADMIN_TELEGRAM_IDS
     keyboard = [
         [
             InlineKeyboardButton("⚡ Proxies", callback_data="get_proxies"),
@@ -131,12 +144,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ],
         [
             InlineKeyboardButton("📊 Status", callback_data="status"),
-            InlineKeyboardButton("🔄 Scrape", callback_data="force_scrape"),
-        ],
-        [
-            InlineKeyboardButton("🛠 Admin Panel", callback_data="admin_panel"),
         ]
     ]
+    if is_admin:
+        keyboard[1].append(InlineKeyboardButton("🔄 Scrape", callback_data="force_scrape"))
+        keyboard.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="admin_panel")])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
@@ -184,7 +197,8 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if data == "get_proxies":
         try:
-            res = supabase.table("proxies").select("*").limit(200).execute()
+            # Always query newest first (descending) so we slice freshest elements
+            res = supabase.table("proxies").select("*").order("created_at", desc=True).limit(200).execute()
             all_proxies = res.data
             if not all_proxies:
                 text = "No active nodes found in Supabase.\nRun /scrape or build in app."
@@ -225,7 +239,8 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     elif data == "get_configs":
         try:
-            res = supabase.table("configs").select("*").limit(1000).execute()
+            # Always order by created_at descending so we extract fresh elements first
+            res = supabase.table("configs").select("*").order("created_at", desc=True).limit(1000).execute()
             all_configs = res.data
             if not all_configs:
                 text = "No configs found in Supabase."
@@ -258,7 +273,7 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                     filename=file_path,
                     caption=(
                         "📂 **HAVEALL CONFIGS** 📂\n"
-                        f"Extracted {sample_size} configs. Import into Hiddify or v2rayNG client app."
+                        f"Extracted {len(sampled_items)} configs. Import into Hiddify or v2rayNG client app."
                     ),
                     parse_mode="Markdown"
                 )
@@ -282,6 +297,9 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             ch_res = supabase.table("monitored_channels").select("*").execute()
             ch_count = len(ch_res.data) if ch_res.data else 0
             
+            sub_res = supabase.table("subscriptions").select("*").execute()
+            sub_count = len(sub_res.data) if sub_res.data else 0
+
             px_res = supabase.table("proxies").select("id").execute()
             px_count = len(px_res.data) if px_res.data else 0
             
@@ -292,10 +310,10 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 text=(
                     "📊 **HAVEALL STATUS** 📊\n"
                     "--------------------\n"
-                    f"channels: {len(SUBSCRIPTION_LINKS)}\n"
-                    f"Custom: {ch_count}\n"
-                    f"Proxies: {px_count}\n"
-                    f"Configs: {cf_count}\n"
+                    f"Subscriptions: {sub_count}\n"
+                    f"Custom Channels: {ch_count}\n"
+                    f"Proxies total: {px_count}\n"
+                    f"Configs total: {cf_count}\n"
                     "--------------------\n"
                     "Status: Online\n"
                     "Interval: 30 Min"
@@ -331,23 +349,43 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.answer("Access restricted to Administrators!", show_alert=True)
             return
 
+        # Fetch total started registered users
+        try:
+            usr_res = supabase.table("bot_users").select("id", count="exact").execute()
+            usr_count = usr_res.count if hasattr(usr_res, 'count') and usr_res.count is not None else len(usr_res.data or [])
+        except Exception:
+            usr_count = 0
+
+        # Fetch current message search limit setting value
+        try:
+            val_res = supabase.table("settings").select("value").eq("key", "messages_count").execute()
+            msg_limit = val_res.data[0]["value"] if val_res.data else "10"
+        except Exception:
+            msg_limit = "10"
+
         keyboard = [
             [
-                InlineKeyboardButton("List Proxy Channels", callback_data="adm_list"),
+                InlineKeyboardButton("📋 Channels Admin", callback_data="adm_list"),
+                InlineKeyboardButton("🔗 Sub Links", callback_data="adm_subs"),
             ],
             [
-                InlineKeyboardButton("Add Proxy Channel", callback_data="adm_add_prompt"),
-                InlineKeyboardButton("Delete Proxy Channel", callback_data="adm_del_prompt"),
+                InlineKeyboardButton("➕ Add Channel", callback_data="adm_add_prompt"),
+                InlineKeyboardButton("❌ Del Channel", callback_data="adm_del_prompt"),
             ],
             [
-                InlineKeyboardButton("Back", callback_data="back_main"),
+                InlineKeyboardButton(f"⚙️ Mess. Limit (Curr: {msg_limit})", callback_data="adm_toggle_limit"),
+            ],
+            [
+                InlineKeyboardButton("🔙 Back to Menu", callback_data="back_main"),
             ]
         ]
         await query.edit_message_text(
             text=(
-                "🛠 **HAVEALL ADMIN** 🛠\n"
+                "🛠 **HAVEALL ADMINISTRATIVE PORTAL** 🛠\n"
                 "--------------------\n"
-                "Manage database channels and sync."
+                f"👤 **Total Started Users:** `{usr_count}`\n"
+                f"⚙️ **Checking Scan Limit:** `{msg_limit} posts`\n\n"
+                "Manage dynamic scraper pools and global parameters:"
             ),
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
@@ -374,19 +412,133 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     elif data == "adm_add_prompt":
         await query.edit_message_text(
-            text="Type: /addchannel [username] (without @)",
+            text="Type: `/addchannel [username]` (without @)\n\nExample:\n`/addchannel bypassfilter`",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="admin_panel")]]),
             parse_mode="Markdown"
         )
 
     elif data == "adm_del_prompt":
         await query.edit_message_text(
-            text="Type: /removechannel [username] (without @)",
+            text="Type: `/removechannel [username]` (without @)\n\nExample:\n`/removechannel bypassfilter`",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="admin_panel")]]),
             parse_mode="Markdown"
         )
 
+    elif data == "adm_subs":
+        if user_id not in ADMIN_TELEGRAM_IDS:
+            await query.answer("Access restricted!", show_alert=True)
+            return
+        try:
+            res = supabase.table("subscriptions").select("*").execute()
+            subs = res.data or []
+            
+            text = "🔗 **DYNAMIC SUBSCRIPTION POOLS** 🔗\n--------------------\n"
+            if not subs:
+                text += "No subscription links registered."
+            else:
+                for idx, sb in enumerate(subs, 1):
+                    short_url = sb["url"][:35] + "..." if len(sb["url"]) > 38 else sb["url"]
+                    text += f"{idx}. `Ref: {sb['remarks']}` (ID: `{sb['id']}`)\n📍 `{short_url}`\n\n"
+            
+            keyboard = [
+                [
+                    InlineKeyboardButton("➕ Add Sub Link", callback_data="add_sub_prompt"),
+                    InlineKeyboardButton("❌ Remove Sub Link", callback_data="del_sub_prompt"),
+                ],
+                [InlineKeyboardButton("🔙 Back to Admin", callback_data="admin_panel")]
+            ]
+            await query.edit_message_text(
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            await query.edit_message_text(f"DB Fetch Error: {e}")
+
+    elif data == "add_sub_prompt":
+        await query.edit_message_text(
+            text="Type: `/addsub [URL] [REMARKS]` to register a new subscription pool.\n\nExample:\n`/addsub https://raw...txt RussiaPool`",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Subs", callback_data="adm_subs")]]),
+            parse_mode="Markdown"
+        )
+
+    elif data == "del_sub_prompt":
+        await query.edit_message_text(
+            text="Type: `/removesub [ID_Number]` to delete that subscription by index identifier.\nFirst check dynamic subscription list to view ID indices.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Subs", callback_data="adm_subs")]]),
+            parse_mode="Markdown"
+        )
+
+    elif data == "adm_toggle_limit":
+        if user_id not in ADMIN_TELEGRAM_IDS:
+            await query.answer("Access restricted!", show_alert=True)
+            return
+        keyboard = [
+            [
+                InlineKeyboardButton("5 Messages", callback_data="set_limit_5"),
+                InlineKeyboardButton("10 Messages", callback_data="set_limit_10"),
+            ],
+            [
+                InlineKeyboardButton("15 Messages", callback_data="set_limit_15"),
+                InlineKeyboardButton("20 Messages", callback_data="set_limit_20"),
+            ],
+            [InlineKeyboardButton("🔙 Back to Admin", callback_data="admin_panel")]
+        ]
+        await query.edit_message_text(
+            text="⚙️ **SET SCAN DEPTH LIMIT** ⚙️\nChoose the number of last messages to scan per Telegram channel when scraping proxies/configs:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
+    elif data.startswith("set_limit_"):
+        if user_id not in ADMIN_TELEGRAM_IDS:
+            await query.answer("Access restricted!", show_alert=True)
+            return
+        new_lim = data.replace("set_limit_", "")
+        try:
+            supabase.table("settings").upsert({"key": "messages_count", "value": new_lim}).execute()
+            await query.answer(f"Success! Adjusted scan depth to last {new_lim} messages per channel.", show_alert=True)
+        except Exception as e:
+            await query.answer(f"Failed to update limit: {e}", show_alert=True)
+        
+        # Redisplay admin panel refreshed
+        # Fetch total started registered users
+        try:
+            usr_res = supabase.table("bot_users").select("id", count="exact").execute()
+            usr_count = usr_res.count if hasattr(usr_res, 'count') and usr_res.count is not None else len(usr_res.data or [])
+        except Exception:
+            usr_count = 0
+
+        keyboard = [
+            [
+                InlineKeyboardButton("📋 Channels Admin", callback_data="adm_list"),
+                InlineKeyboardButton("🔗 Sub Links", callback_data="adm_subs"),
+            ],
+            [
+                InlineKeyboardButton("➕ Add Channel", callback_data="adm_add_prompt"),
+                InlineKeyboardButton("❌ Del Channel", callback_data="adm_del_prompt"),
+            ],
+            [
+                InlineKeyboardButton(f"⚙️ Mess. Limit (Curr: {new_lim})", callback_data="adm_toggle_limit"),
+            ],
+            [
+                InlineKeyboardButton("🔙 Back to Menu", callback_data="back_main"),
+            ]
+        ]
+        await query.edit_message_text(
+            text=(
+                "🛠 **HAVEALL ADMINISTRATIVE PORTAL** 🛠\n"
+                "--------------------\n"
+                f"👤 **Total Started Users:** `{usr_count}`\n"
+                f"⚙️ **Checking Scan Limit:** `{new_lim} posts`\n\n"
+                "Manage dynamic scraper pools and global parameters:"
+            ),
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
     elif data == "back_main":
+        is_admin = user_id in ADMIN_TELEGRAM_IDS
         keyboard = [
             [
                 InlineKeyboardButton("⚡ Proxies", callback_data="get_proxies"),
@@ -394,12 +546,12 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             ],
             [
                 InlineKeyboardButton("📊 Status", callback_data="status"),
-                InlineKeyboardButton("🔄 Scrape", callback_data="force_scrape"),
-            ],
-            [
-                InlineKeyboardButton("🛠 Admin Panel", callback_data="admin_panel"),
             ]
         ]
+        if is_admin:
+            keyboard[1].append(InlineKeyboardButton("🔄 Scrape", callback_data="force_scrape"))
+            keyboard.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="admin_panel")])
+
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(
             text=(
@@ -451,6 +603,53 @@ async def remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await send_log_to_admins(context, f"Admin removed channel: @{ch_name}", update.effective_user)
     except Exception as e:
         await update.message.reply_text(f"Deletion error: {e}")
+    await delete_user_message(update, context)
+
+async def add_subscription_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_TELEGRAM_IDS:
+        await update.message.reply_text("Portal Admin access required!")
+        await delete_user_message(update, context)
+        return
+
+    if not context.args:
+        await update.message.reply_text("Format: `/addsub [URL] [Optional_Remarks]`")
+        await delete_user_message(update, context)
+        return
+
+    url = context.args[0].strip()
+    remarks = " ".join(context.args[1:]).strip() if len(context.args) > 1 else "Custom Added"
+    try:
+        supabase.table("subscriptions").insert({"url": url, "remarks": remarks}).execute()
+        await update.message.reply_text(f"Registered subscription successfully:\n`Ref: {remarks}`")
+        await send_log_to_admins(context, f"Admin added subscription list: {remarks}", update.effective_user)
+    except Exception as e:
+        await update.message.reply_text(f"Failed to register subscription: {e}")
+    await delete_user_message(update, context)
+
+async def remove_subscription_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_TELEGRAM_IDS:
+        await update.message.reply_text("Portal Admin access required!")
+        await delete_user_message(update, context)
+        return
+
+    if not context.args:
+        await update.message.reply_text("Format: `/removesub [ID]`")
+        await delete_user_message(update, context)
+        return
+
+    req_id = context.args[0].strip()
+    try:
+        if req_id.isdigit():
+            supabase.table("subscriptions").delete().eq("id", int(req_id)).execute()
+            await update.message.reply_text(f"Successfully deleted subscription ID: {req_id}")
+        else:
+            supabase.table("subscriptions").delete().eq("url", req_id).execute()
+            await update.message.reply_text(f"Successfully deleted subscription URL: {req_id}")
+        await send_log_to_admins(context, f"Admin removed subscription ID/URL: {req_id}", update.effective_user)
+    except Exception as e:
+        await update.message.reply_text(f"Subscription deletion error: {e}")
     await delete_user_message(update, context)
 
 async def scrape_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -593,6 +792,8 @@ def main():
     app.add_handler(CommandHandler("scrape", scrape_command))
     app.add_handler(CommandHandler("addchannel", add_channel))
     app.add_handler(CommandHandler("removechannel", remove_channel))
+    app.add_handler(CommandHandler("addsub", add_subscription_command))
+    app.add_handler(CommandHandler("removesub", remove_subscription_command))
     app.add_handler(CallbackQueryHandler(button_click_handler))
     app.add_handler(InlineQueryHandler(inline_query_handler))
     

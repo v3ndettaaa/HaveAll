@@ -36,6 +36,9 @@ class MainViewModel : ViewModel() {
     private val _channelsState = MutableStateFlow<UiState<List<SupabaseChannel>>>(UiState.Loading)
     val channelsState: StateFlow<UiState<List<SupabaseChannel>>> = _channelsState.asStateFlow()
 
+    private val _subscriptionsState = MutableStateFlow<UiState<List<SupabaseSubscription>>>(UiState.Loading)
+    val subscriptionsState: StateFlow<UiState<List<SupabaseSubscription>>> = _subscriptionsState.asStateFlow()
+
     // Pagination management
     private var proxiesOffset = 0
     private var configsOffset = 0
@@ -59,6 +62,7 @@ class MainViewModel : ViewModel() {
             _proxiesState.value = UiState.Error(missingMsg)
             _configsState.value = UiState.Error(missingMsg)
             _channelsState.value = UiState.Error(missingMsg)
+            _subscriptionsState.value = UiState.Error(missingMsg)
         }
     }
 
@@ -73,6 +77,7 @@ class MainViewModel : ViewModel() {
         loadNextProxiesPage()
         loadNextConfigsPage()
         loadMonitoredChannels()
+        loadSubscriptions()
     }
 
     fun loadNextProxiesPage() {
@@ -182,6 +187,65 @@ class MainViewModel : ViewModel() {
             } catch (e: Exception) {
                 // PostgREST eq deletes can sometimes return void; if delete operation is void, capture it softly
                 loadMonitoredChannels()
+            }
+        }
+    }
+
+    fun loadSubscriptions() {
+        val url = _supabaseUrl.value
+        val key = _supabaseKey.value
+        if (url.isEmpty() || key.isEmpty()) return
+
+        viewModelScope.launch {
+            _subscriptionsState.value = UiState.Loading
+            try {
+                val api = RetrofitClient.createService(url)
+                val subs = api.getSubscriptions(apiKey = key, authHeader = "Bearer $key")
+                _subscriptionsState.value = UiState.Success(subs)
+            } catch (e: Exception) {
+                _subscriptionsState.value = UiState.Error("Failed to load subs: ${e.localizedMessage ?: e.message}")
+            }
+        }
+    }
+
+    fun addSubscription(context: Context, linkUrl: String, remarks: String) {
+        val url = _supabaseUrl.value
+        val key = _supabaseKey.value
+        if (url.isEmpty() || key.isEmpty() || linkUrl.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val api = RetrofitClient.createService(url)
+                api.addSubscription(
+                    apiKey = key,
+                    authHeader = "Bearer $key",
+                    request = AddSubscriptionRequest(url = linkUrl, remarks = remarks)
+                )
+                Toast.makeText(context, "Added subscription successfully!", Toast.LENGTH_SHORT).show()
+                loadSubscriptions()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Insert failed: ${e.localizedMessage ?: e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun deleteSubscription(context: Context, linkUrl: String) {
+        val url = _supabaseUrl.value
+        val key = _supabaseKey.value
+        if (url.isEmpty() || key.isEmpty() || linkUrl.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val api = RetrofitClient.createService(url)
+                api.deleteSubscription(
+                    apiKey = key,
+                    authHeader = "Bearer $key",
+                    url = "eq.$linkUrl"
+                )
+                Toast.makeText(context, "Removed subscription pool!", Toast.LENGTH_SHORT).show()
+                loadSubscriptions()
+            } catch (e: Exception) {
+                loadSubscriptions()
             }
         }
     }

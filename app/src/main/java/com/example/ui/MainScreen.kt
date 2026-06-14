@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.SupabaseChannel
 import com.example.data.SupabaseConfig
 import com.example.data.SupabaseProxy
+import com.example.data.SupabaseSubscription
 import com.example.ui.theme.FarsiTypography
 import com.example.ui.theme.Typography
 
@@ -992,143 +993,362 @@ fun AdminPanelSection(
     val context = LocalContext.current
     var inputChannelName by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (darkMode) Color(0x1A00E5FF) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = null,
-                        tint = if (darkMode) NeonCyan else ElectricBlue,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
+    val subsState by viewModel.subscriptionsState.collectAsState()
+    var inputSubUrl by remember { mutableStateOf("") }
+    var inputSubRemarks by remember { mutableStateOf("") }
+
+    LazyColumn(
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // 1. Info / Status Header Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (darkMode) Color(0x1A00E5FF) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = null,
+                            tint = if (darkMode) NeonCyan else ElectricBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = translation["admin_panel"] ?: "Admin",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = translation["admin_panel"] ?: "Admin",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
+                        text = translation["admin_desc"] ?: "Manage pools and directories dynamically.",
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = translation["sync_interval"] ?: "Sync Interval: Every 30 minutes",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (darkMode) NeonCyan else ElectricBlue
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = translation["admin_desc"] ?: "",
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = translation["sync_interval"] ?: "",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (darkMode) NeonCyan else ElectricBlue
-                )
             }
         }
 
-        // Action block to add custom monitored pools
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp)
-                .border(1.dp, if (darkMode) Color(0x3300E5FF) else Color(0x1F000000), RoundedCornerShape(16.dp)),
-            colors = CardDefaults.cardColors(containerColor = if (darkMode) GlassBackgroundDark else Color.White),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                OutlinedTextField(
-                    value = inputChannelName,
-                    onValueChange = { inputChannelName = it },
-                    placeholder = { Text(text = translation["chan_placeholder"] ?: "") },
-                    leadingIcon = { Icon(Icons.Default.AddLink, null) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (darkMode) NeonCyan else ElectricBlue
-                    ),
-                    modifier = Modifier.fillMaxWidth().testTag("add_channel_input")
-                )
+        // 2. Add Monitored Channel Form
+        item {
+            Text(
+                text = "REGISTER CHANNEL",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
+            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = if (darkMode) GlassBackgroundDark else Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    OutlinedTextField(
+                        value = inputChannelName,
+                        onValueChange = { inputChannelName = it },
+                        placeholder = { Text(text = translation["chan_placeholder"] ?: "bypassfilter (without @)") },
+                        leadingIcon = { Icon(Icons.Default.AddLink, null) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (darkMode) NeonCyan else ElectricBlue
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("add_channel_input")
+                    )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                Button(
-                    onClick = {
-                        if (inputChannelName.isNotBlank()) {
-                            viewModel.addCustomChannel(context, inputChannelName)
-                            inputChannelName = ""
-                        } else {
-                            Toast.makeText(context, "Input cannot be empty!", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (darkMode) ElectricBlue else MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.fillMaxWidth().testTag("add_channel_submit")
-                ) {
-                    Icon(Icons.Default.Add, null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = translation["add_chan"] ?: "Add")
+                    Button(
+                        onClick = {
+                            if (inputChannelName.isNotBlank()) {
+                                viewModel.addCustomChannel(context, inputChannelName)
+                                inputChannelName = ""
+                            } else {
+                                Toast.makeText(context, "Input cannot be empty!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (darkMode) ElectricBlue else MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth().testTag("add_channel_submit")
+                    ) {
+                        Icon(Icons.Default.Add, null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = translation["add_chan"] ?: "Add Channel")
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        // 3. Monitored Channels Display Header
+        item {
+            Text(
+                text = translation["monitored_list"] ?: "Monitored Telegram Channels Pool",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
+            )
+        }
 
-        // List display of actual connected pools
-        Text(
-            text = translation["monitored_list"] ?: "",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
-        )
-
+        // 4. Monitored Channels List
         when (state) {
             is UiState.Loading -> {
-                Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = if (darkMode) NeonCyan else ElectricBlue)
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = if (darkMode) NeonCyan else ElectricBlue, modifier = Modifier.size(24.dp))
+                    }
                 }
             }
             is UiState.Error -> {
-                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(text = state.message, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Text(text = state.message, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
             is UiState.Success -> {
                 val channels = state.data
                 if (channels.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        Text(text = "No custom channels added. Monitoring official configuration sources.", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
-                    }
-                    return
-                }
-
-                LazyColumn(
-                    contentPadding = PaddingValues(bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(
-                        items = channels,
-                        key = { channel -> channel.username }
-                    ) { channel ->
-                        AnimatedItemWrapper(index = 0) {
-                            ChannelItemCard(
-                                channel = channel,
-                                darkMode = darkMode,
-                                onDelete = {
-                                    viewModel.deleteCustomChannel(context, channel.username)
-                                }
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                        ) {
+                            Text(
+                                text = "No custom channels added currently.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
                             )
                         }
                     }
+                } else {
+                    items(
+                        items = channels,
+                        key = { channel -> "ch_${channel.id}" }
+                    ) { channel ->
+                        ChannelItemCard(
+                            channel = channel,
+                            darkMode = darkMode,
+                            onDelete = {
+                                viewModel.deleteCustomChannel(context, channel.username)
+                            }
+                        )
+                    }
                 }
+            }
+        }
+
+        // 5. Add VPN Subscription Link Form
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "REGISTER SUBSCRIPTION POOL",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
+            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = if (darkMode) GlassBackgroundDark else Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    OutlinedTextField(
+                        value = inputSubUrl,
+                        onValueChange = { inputSubUrl = it },
+                        placeholder = { Text(text = "https://raw.githubusercontent.com/...txt") },
+                        label = { Text("Subscription Link URL") },
+                        leadingIcon = { Icon(Icons.Default.AddLink, null) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (darkMode) NeonCyan else ElectricBlue
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("add_sub_input_url")
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = inputSubRemarks,
+                        onValueChange = { inputSubRemarks = it },
+                        placeholder = { Text(text = "Russian Pools / Star Pools") },
+                        label = { Text("Service Remarks / Label") },
+                        leadingIcon = { Icon(Icons.Default.Edit, null) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (darkMode) NeonCyan else ElectricBlue
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("add_sub_input_remarks")
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            if (inputSubUrl.isNotBlank() && inputSubRemarks.isNotBlank()) {
+                                viewModel.addSubscription(context, inputSubUrl, inputSubRemarks)
+                                inputSubUrl = ""
+                                inputSubRemarks = ""
+                            } else {
+                                Toast.makeText(context, "URL and Remarks cannot be empty!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (darkMode) ElectricBlue else MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth().testTag("add_sub_submit")
+                    ) {
+                        Icon(Icons.Default.Add, null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Add Subscription")
+                    }
+                }
+            }
+        }
+
+        // 6. Subscription Links Display Header
+        item {
+            Text(
+                text = "Active Subscription Repositories",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
+            )
+        }
+
+        // 7. Subscription Links List
+        when (val subState = subsState) {
+            is UiState.Loading -> {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = if (darkMode) NeonCyan else ElectricBlue, modifier = Modifier.size(24.dp))
+                    }
+                }
+            }
+            is UiState.Error -> {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Text(text = subState.message, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            is UiState.Success -> {
+                val subs = subState.data
+                if (subs.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                        ) {
+                            Text(
+                                text = "No external subscription links added yet.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+                    }
+                } else {
+                    items(
+                        items = subs,
+                        key = { sub -> "sub_${sub.id}" }
+                    ) { sub ->
+                        SubscriptionItemCard(
+                            subscription = sub,
+                            darkMode = darkMode,
+                            onDelete = {
+                                viewModel.deleteSubscription(context, sub.url)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SubscriptionItemCard(
+    subscription: SupabaseSubscription,
+    darkMode: Boolean,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (darkMode) GlassBackgroundDark.copy(alpha = 0.6f) else Color.White
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AddLink,
+                    contentDescription = null,
+                    tint = if (darkMode) NeonCyan else ElectricBlue,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = subscription.remarks ?: "Subscription URL",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = subscription.url,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.testTag("delete_sub_${subscription.id}")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
