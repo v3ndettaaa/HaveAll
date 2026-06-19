@@ -729,9 +729,14 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text(
             text=(
                 "💎 **HAVEALL PORTAL** 💎\n"
+                "همه برای تو\n"
+                "--------------------\n"
+                "⚡ Speed proxies and tunnel scraper.\n\n"
+                "Verified every 30 minutes.\n"
+                "--------------------\n"
                 "Select action:"
             ),
-            reply_markup=reply_markup,
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
         )
 
