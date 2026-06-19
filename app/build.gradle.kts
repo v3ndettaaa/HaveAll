@@ -3,18 +3,19 @@ import java.net.HttpURLConnection
 
 plugins {
   alias(libs.plugins.android.application)
+  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.secrets)
 }
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.haveall.portal"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 35
     versionCode = 1
     versionName = "1.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -28,7 +29,7 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
-    create("debugConfig") {
+    getByName("debug") {
       storeFile = file("${rootDir}/debug.keystore")
       storePassword = "android"
       keyAlias = "androiddebugkey"
@@ -44,13 +45,19 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      signingConfig = signingConfigs.getByName("debug")
     }
   }
+
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
+
+  kotlinOptions {
+    jvmTarget = "11"
+  }
+
   buildFeatures {
     compose = true
     buildConfig = true
@@ -70,7 +77,6 @@ dependencies {
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
-  implementation("androidx.compose.ui:ui-text-google-fonts")
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.compose)
@@ -82,7 +88,6 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
-  implementation(libs.retrofit)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }

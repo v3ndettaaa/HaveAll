@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -22,8 +21,8 @@ import com.example.data.SupabaseChannel
 import com.example.data.SupabaseSubscription
 import com.example.ui.AppLanguage
 import com.example.ui.MainViewModel
-import com.example.ui.UiState
 import com.example.ui.Translations
+import com.example.ui.UiState
 
 @Composable
 fun AdminPanel(
@@ -34,41 +33,44 @@ fun AdminPanel(
     darkMode: Boolean
 ) {
     val context = LocalContext.current
-    val accent = if (darkMode) Color(0xFF00E5FF) else Color(0xFF2979FF)
+    val primary = MaterialTheme.colorScheme.primary
     var channelInput by remember { mutableStateOf("") }
     var subUrlInput by remember { mutableStateOf("") }
     var subLabelInput by remember { mutableStateOf("") }
 
     LazyColumn(
         contentPadding = PaddingValues(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = Modifier.fillMaxSize()
     ) {
+        // Info banner
         item {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.08f)),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                colors = CardDefaults.cardColors(containerColor = primary.copy(alpha = 0.08f)),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Build, null, tint = accent, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(Translations.get("admin_panel", language), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AdminPanelSettings, null, tint = primary, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(Translations.get("admin_desc", language),
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.height(2.dp))
+                        Text(Translations.get("sync_interval", language),
+                            fontSize = 11.sp, fontWeight = FontWeight.Bold, color = primary)
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(Translations.get("admin_desc", language), fontSize = 11.sp, color = Color.Gray, lineHeight = 16.sp)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(Translations.get("sync_interval", language), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = accent)
                 }
             }
         }
 
+        // Channels section
+        item { SectionLabel(Translations.get("monitored_list", language)) }
+
         item {
-            SectionHeader(Translations.get("monitored_list", language))
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = if (darkMode) Color(0xB3151D35) else Color.White),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -76,109 +78,114 @@ fun AdminPanel(
                         value = channelInput,
                         onValueChange = { channelInput = it },
                         placeholder = { Text(Translations.get("chan_placeholder", language), fontSize = 12.sp) },
-                        leadingIcon = { Icon(Icons.Default.AddLink, null, modifier = Modifier.size(18.dp)) },
+                        leadingIcon = { Icon(Icons.Default.Tag, null, modifier = Modifier.size(18.dp)) },
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        ),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Button(
                         onClick = {
                             if (channelInput.isNotBlank()) {
                                 viewModel.addCustomChannel(context, channelInput)
                                 channelInput = ""
-                            } else {
-                                Toast.makeText(context, "Enter channel name", Toast.LENGTH_SHORT).show()
-                            }
+                            } else Toast.makeText(context, "Enter channel name", Toast.LENGTH_SHORT).show()
                         },
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = accent),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(Translations.get("add_chan", language), color = Color.White)
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(Translations.get("add_chan", language))
                     }
                 }
             }
         }
 
         when (channelsState) {
-            is UiState.Loading -> item { LoadingItem(accent) }
-            is UiState.Error -> item { ErrorItem(channelsState.message) }
+            is UiState.Loading -> item { CenteredLoader(primary) }
+            is UiState.Error -> item { InlineError(channelsState.message) }
             is UiState.Success -> {
-                val channels = channelsState.data
-                if (channels.isEmpty()) {
-                    item { EmptyItem(Translations.get("no_channels", language)) }
+                if (channelsState.data.isEmpty()) {
+                    item { EmptyLabel(Translations.get("no_channels", language)) }
                 } else {
-                    items(channels, key = { "ch_${it.id}" }) { ch ->
-                        ChannelRow(ch, darkMode, accent) { viewModel.deleteCustomChannel(context, ch.username) }
+                    items(channelsState.data, key = { "ch_${it.id}" }) { ch ->
+                        ChannelTile(ch, primary) { viewModel.deleteCustomChannel(context, ch.username) }
                     }
                 }
             }
         }
 
+        // Subscriptions section
+        item { Spacer(Modifier.height(12.dp)) }
+        item { SectionLabel(Translations.get("sub_list", language)) }
+
         item {
-            Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader(Translations.get("sub_list", language))
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = if (darkMode) Color(0xB3151D35) else Color.White),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     OutlinedTextField(
                         value = subUrlInput,
                         onValueChange = { subUrlInput = it },
-                        placeholder = { Text(Translations.get("sub_url_placeholder", language), fontSize = 12.sp) },
                         label = { Text(Translations.get("sub_url_label", language), fontSize = 12.sp) },
+                        placeholder = { Text("https://...", fontSize = 11.sp) },
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        ),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = subLabelInput,
                         onValueChange = { subLabelInput = it },
-                        placeholder = { Text(Translations.get("sub_label_placeholder", language), fontSize = 12.sp) },
                         label = { Text(Translations.get("sub_label_label", language), fontSize = 12.sp) },
+                        placeholder = { Text(Translations.get("sub_label_placeholder", language), fontSize = 11.sp) },
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        ),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Button(
                         onClick = {
                             if (subUrlInput.isNotBlank() && subLabelInput.isNotBlank()) {
                                 viewModel.addSubscription(context, subUrlInput, subLabelInput)
-                                subUrlInput = ""
-                                subLabelInput = ""
-                            } else {
-                                Toast.makeText(context, "Fill both fields", Toast.LENGTH_SHORT).show()
-                            }
+                                subUrlInput = ""; subLabelInput = ""
+                            } else Toast.makeText(context, "Fill both fields", Toast.LENGTH_SHORT).show()
                         },
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = accent),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(Translations.get("add_sub", language), color = Color.White)
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(Translations.get("add_sub", language))
                     }
                 }
             }
         }
 
         when (subscriptionsState) {
-            is UiState.Loading -> item { LoadingItem(accent) }
-            is UiState.Error -> item { ErrorItem(subscriptionsState.message) }
+            is UiState.Loading -> item { CenteredLoader(primary) }
+            is UiState.Error -> item { InlineError(subscriptionsState.message) }
             is UiState.Success -> {
-                val subs = subscriptionsState.data
-                if (subs.isEmpty()) {
-                    item { EmptyItem(Translations.get("no_subs", language)) }
+                if (subscriptionsState.data.isEmpty()) {
+                    item { EmptyLabel(Translations.get("no_subs", language)) }
                 } else {
-                    items(subs, key = { "sub_${it.id}" }) { sub ->
-                        SubRow(sub, darkMode, accent) { viewModel.deleteSubscription(context, sub.url) }
+                    items(subscriptionsState.data, key = { "sub_${it.id}" }) { sub ->
+                        SubTile(sub, primary) { viewModel.deleteSubscription(context, sub.url) }
                     }
                 }
             }
@@ -187,84 +194,83 @@ fun AdminPanel(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+private fun SectionLabel(text: String) {
     Text(
-        text = text, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-        color = Color.Gray, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+        text.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
     )
 }
 
 @Composable
-private fun LoadingItem(accent: Color) {
-    Box(modifier = Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(modifier = Modifier.size(22.dp), color = accent, strokeWidth = 2.dp)
+private fun CenteredLoader(primary: androidx.compose.ui.graphics.Color) {
+    Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(Modifier.size(22.dp), color = primary, strokeWidth = 2.dp)
     }
 }
 
 @Composable
-private fun ErrorItem(message: String) {
-    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-        Text(message, fontSize = 11.sp, color = Color.Red)
+private fun InlineError(message: String) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(message, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
     }
 }
 
 @Composable
-private fun EmptyItem(text: String) {
-    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-        Text(text, fontSize = 11.sp, color = Color.Gray)
+private fun EmptyLabel(text: String) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+        Text(text, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun ChannelRow(channel: SupabaseChannel, darkMode: Boolean, accent: Color, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (darkMode) Color(0xB3151D35).copy(alpha = 0.6f) else Color.White),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.RssFeed, null, tint = accent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text("@${channel.username}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text("ID: #${channel.id}", fontSize = 9.sp, color = Color.Gray, fontFamily = FontFamily.Monospace)
-                }
-            }
+private fun ChannelTile(channel: SupabaseChannel, primary: androidx.compose.ui.graphics.Color, onDelete: () -> Unit) {
+    ListItem(
+        modifier = Modifier.padding(horizontal = 8.dp),
+        headlineContent = {
+            Text("@${channel.username}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        },
+        supportingContent = {
+            Text("ID #${channel.id}", fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        leadingContent = {
+            Icon(Icons.Default.RssFeed, null, tint = primary, modifier = Modifier.size(20.dp))
+        },
+        trailingContent = {
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, "Delete", tint = Color(0xFFFF5252), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.DeleteOutline, "Delete",
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
             }
         }
-    }
+    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 }
 
 @Composable
-private fun SubRow(sub: SupabaseSubscription, darkMode: Boolean, accent: Color, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (darkMode) Color(0xB3151D35).copy(alpha = 0.6f) else Color.White),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AddLink, null, tint = accent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(sub.remarks ?: "Subscription", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(sub.url, fontSize = 10.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
+private fun SubTile(sub: SupabaseSubscription, primary: androidx.compose.ui.graphics.Color, onDelete: () -> Unit) {
+    ListItem(
+        modifier = Modifier.padding(horizontal = 8.dp),
+        headlineContent = {
+            Text(sub.remarks ?: "Subscription", fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        supportingContent = {
+            Text(sub.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        leadingContent = {
+            Icon(Icons.Default.Link, null, tint = primary, modifier = Modifier.size(20.dp))
+        },
+        trailingContent = {
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, "Delete", tint = Color(0xFFFF5252), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.DeleteOutline, "Delete",
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
             }
         }
-    }
+    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 }

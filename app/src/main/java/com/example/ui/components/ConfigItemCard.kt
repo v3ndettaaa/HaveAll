@@ -7,13 +7,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -21,27 +20,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.SupabaseConfig
 
+private val protocolColors = mapOf(
+    "vmess" to 0xFF6366F1, "vless" to 0xFF0EA5E9, "trojan" to 0xFFEC4899,
+    "shadowsocks" to 0xFFF59E0B, "hysteria" to 0xFF10B981, "tuic" to 0xFF8B5CF6
+)
+
 @Composable
-fun ConfigItemCard(
-    config: SupabaseConfig,
-    darkMode: Boolean,
-    onCopy: () -> Unit,
-    onImport: () -> Unit
-) {
-    val accent = if (darkMode) Color(0xFF00E5FF) else Color(0xFF2979FF)
-    val cardBg = if (darkMode) Color(0xB3151D35) else Color.White
-    val codeBg = if (darkMode) Color(0xFF0F1524) else Color(0xFFF1F4FA)
-    val borderColor = if (darkMode) Color(0x3300E5FF) else Color(0x1F000000)
+fun ConfigItemCard(config: SupabaseConfig, darkMode: Boolean, onCopy: () -> Unit, onImport: () -> Unit) {
+    val primary = MaterialTheme.colorScheme.primary
+    val protoHex = protocolColors[config.type.lowercase()] ?: 0xFF6366F1
+    val protoColor = androidx.compose.ui.graphics.Color(protoHex)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        shape = RoundedCornerShape(16.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -50,59 +49,72 @@ fun ConfigItemCard(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(accent.copy(alpha = 0.12f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .background(protoColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
-                    Text(config.type.uppercase(), fontWeight = FontWeight.Bold, color = accent, fontSize = 11.sp)
+                    Text(
+                        config.type.uppercase(),
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = protoColor, letterSpacing = 1.sp
+                    )
                 }
-                Text("ID: #${config.id}", color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                if (!config.remarks.isNullOrEmpty()) {
+                    Text(
+                        config.remarks, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 160.dp)
+                    )
+                } else {
+                    Text("#${config.id}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace)
+                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(codeBg)
+                    .background(MaterialTheme.colorScheme.background)
                     .clickable { onCopy() }
-                    .padding(10.dp)
+                    .padding(12.dp)
             ) {
                 Text(
-                    config.raw_content, fontSize = 10.sp, fontFamily = FontFamily.Monospace,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    config.raw_content,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                    lineHeight = 15.sp
                 )
             }
 
-            if (!config.remarks.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(config.remarks, fontSize = 10.sp, color = Color.Gray)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = onCopy,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    contentPadding = PaddingValues(vertical = 9.dp),
                 ) {
                     Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Copy", fontSize = 11.sp)
+                    Spacer(Modifier.width(5.dp))
+                    Text("Copy", fontSize = 12.sp)
                 }
                 Button(
                     onClick = onImport,
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = accent),
+                    colors = ButtonDefaults.buttonColors(containerColor = primary),
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    contentPadding = PaddingValues(vertical = 9.dp)
                 ) {
-                    Icon(Icons.Default.FileDownload, null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Hiddify", fontSize = 11.sp, color = Color.White)
+                    Icon(Icons.Default.Download, null, modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary)
+                    Spacer(Modifier.width(5.dp))
+                    Text("Hiddify", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary)
                 }
             }
         }

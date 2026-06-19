@@ -1,14 +1,13 @@
 package com.example.ui
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,9 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -31,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import com.example.data.SupabaseConfig
 import com.example.data.SupabaseProxy
 import com.example.ui.components.*
+
+private data class NavItem(val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,201 +55,224 @@ fun MainScreen(
     var newKey by remember { mutableStateOf(currentKey) }
     LaunchedEffect(currentUrl, currentKey) { newUrl = currentUrl; newKey = currentKey }
 
-    val accent = if (darkMode) Color(0xFF00E5FF) else Color(0xFF2979FF)
-    val bg = if (darkMode) Color(0xFF000000) else Color(0xFFF2F2F7)
-    val layoutDir = remember(language) { if (language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr }
+    val layoutDir = if (language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr
+
+    val navItems = listOf(
+        NavItem(Translations.get("configs", language), Icons.Default.Tune, Icons.Default.Tune),
+        NavItem(Translations.get("proxies", language), Icons.Default.VpnKey, Icons.Default.VpnKey),
+        NavItem(Translations.get("admin_panel", language), Icons.Default.AdminPanelSettings, Icons.Default.AdminPanelSettings)
+    )
 
     CompositionLocalProvider(LocalLayoutDirection provides layoutDir) {
-        MaterialTheme(colorScheme = MaterialTheme.colorScheme) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Scaffold(
-                    topBar = {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Transparent)
-                                .statusBarsPadding()
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Icon(Icons.Default.Cloud, null, tint = accent, modifier = Modifier.size(26.dp))
-                                        Text(Translations.get("app_title", language), fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
-                                    }
-                                    Text(Translations.get("subtitle", language), fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Medium)
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = { language = if (language == AppLanguage.EN) AppLanguage.FA else AppLanguage.EN },
-                                        modifier = Modifier.clip(CircleShape).background(accent.copy(alpha = 0.1f)).testTag("lang_toggle")
-                                    ) {
-                                        Icon(Icons.Default.Language, null, tint = accent, modifier = Modifier.size(20.dp))
-                                    }
-                                    IconButton(
-                                        onClick = { onDarkThemeToggle(!darkMode) },
-                                        modifier = Modifier.clip(CircleShape).background(accent.copy(alpha = 0.1f)).testTag("theme_toggle")
-                                    ) {
-                                        Icon(if (darkMode) Icons.Default.Brightness5 else Icons.Default.Brightness2, null, tint = accent, modifier = Modifier.size(20.dp))
-                                    }
-                                    IconButton(
-                                        onClick = { showSettings = true },
-                                        modifier = Modifier.clip(CircleShape).background(accent.copy(alpha = 0.1f)).testTag("settings_button")
-                                    ) {
-                                        Icon(Icons.Default.Settings, null, tint = accent, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                                    .clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.08f)).padding(3.dp)
-                            ) {
-                                val tabs = listOf(
-                                    Translations.get("configs", language),
-                                    Translations.get("proxies", language),
-                                    Translations.get("admin_panel", language)
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Column {
+                                Text(
+                                    Translations.get("app_title", language),
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black)
                                 )
-                                tabs.forEachIndexed { index, title ->
-                                    val selected = selectedTab == index
-                                    Box(
-                                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(11.dp))
-                                            .background(if (selected) accent else Color.Transparent)
-                                            .clickable { selectedTab = index }.padding(vertical = 9.dp)
-                                            .testTag("tab_$index"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                                            color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                                            textAlign = TextAlign.Center)
-                                    }
-                                }
+                                Text(
+                                    Translations.get("subtitle", language),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
+                        },
+                        navigationIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Hub, null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp))
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = { language = if (language == AppLanguage.EN) AppLanguage.FA else AppLanguage.EN },
+                                modifier = Modifier.testTag("lang_toggle")
+                            ) {
+                                Icon(Icons.Default.Language, "Language",
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                            IconButton(
+                                onClick = { onDarkThemeToggle(!darkMode) },
+                                modifier = Modifier.testTag("theme_toggle")
+                            ) {
+                                Icon(
+                                    if (darkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                    "Theme", tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(
+                                onClick = { showSettings = true },
+                                modifier = Modifier.testTag("settings_button")
+                            ) {
+                                Icon(Icons.Default.Settings, "Settings",
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            titleContentColor = MaterialTheme.colorScheme.onBackground
+                        )
+                    )
+                },
+                bottomBar = {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 3.dp
+                    ) {
+                        navItems.forEachIndexed { index, item ->
+                            NavigationBarItem(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                icon = {
+                                    Icon(
+                                        if (selectedTab == index) item.selectedIcon else item.icon,
+                                        null
+                                    )
+                                },
+                                label = { Text(item.label, fontSize = 11.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.testTag("tab_$index")
+                            )
+                        }
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.background
+            ) { paddingValues ->
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        (slideInHorizontally { if (targetState > initialState) it else -it } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally { if (targetState > initialState) -it else it } + fadeOut(tween(220)))
+                            .using(SizeTransform(clip = false))
+                    },
+                    label = "tab",
+                    modifier = Modifier.fillMaxSize().padding(paddingValues)
+                ) { tab ->
+                    when (tab) {
+                        0 -> ConfigsTab(viewModel, configsState, language)
+                        1 -> ProxiesTab(viewModel, proxiesState, language)
+                        2 -> AdminPanel(viewModel, channelsState, subsState, language, darkMode)
+                        else -> {}
+                    }
+                }
+            }
+
+            // Settings dialog
+            if (showSettings) {
+                AlertDialog(
+                    onDismissRequest = { showSettings = false },
+                    icon = { Icon(Icons.Default.Storage, null, tint = MaterialTheme.colorScheme.primary) },
+                    title = { Text(Translations.get("db_setup", language)) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(Translations.get("dialog_desc", language),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedTextField(
+                                value = newUrl, onValueChange = { newUrl = it },
+                                label = { Text("Supabase URL") },
+                                leadingIcon = { Icon(Icons.Default.Link, null) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = newKey, onValueChange = { newKey = it },
+                                label = { Text("API Key") },
+                                leadingIcon = { Icon(Icons.Default.Key, null) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     },
-                    bottomBar = {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            tonalElevation = 2.dp,
-                            color = if (darkMode) Color(0xFF0A0F1D) else MaterialTheme.colorScheme.background
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.CheckCircle, null, tint = accent, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(Translations.get("active_sync", language), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                            }
+                    confirmButton = {
+                        Button(
+                            onClick = { viewModel.initializeCredentials(newUrl, newKey); showSettings = false },
+                            shape = RoundedCornerShape(10.dp)
+                        ) { Text(Translations.get("apply", language)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showSettings = false }) {
+                            Text(Translations.get("cancel", language))
                         }
                     }
-                ) { paddingValues ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .drawBehind { drawRect(Brush.linearGradient(listOf(bg, bg))) }
-                            .padding(paddingValues)
-                    ) {
-                        AnimatedContent(
-                            targetState = selectedTab,
-                            transitionSpec = {
-                                (slideInHorizontally { if (targetState > initialState) it else -it } + fadeIn(tween(250)))
-                                    .togetherWith(slideOutHorizontally { if (targetState > initialState) -it else it } + fadeOut(tween(250)))
-                                    .using(SizeTransform(clip = false))
-                            },
-                            label = "tab",
-                            modifier = Modifier.fillMaxSize()
-                        ) { tab ->
-                            when (tab) {
-                                0 -> ConfigsTab(viewModel, configsState, darkMode, accent, language)
-                                1 -> ProxiesTab(viewModel, proxiesState, darkMode, accent, language)
-                                2 -> AdminPanel(viewModel, channelsState, subsState, language, darkMode)
-                            }
-                        }
-                    }
+                )
+            }
 
-                    if (showSettings) {
-                        AlertDialog(
-                            onDismissRequest = { showSettings = false },
-                            title = {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(Icons.Default.Backup, null, tint = accent)
-                                    Text(Translations.get("db_setup", language))
-                                }
-                            },
-                            text = {
-                                Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
-                                    Text(Translations.get("dialog_desc", language), fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                                    OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Supabase URL") },
-                                        leadingIcon = { Icon(Icons.Default.Link, null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = newKey, onValueChange = { newKey = it }, label = { Text("API Key") },
-                                        leadingIcon = { Icon(Icons.Default.VpnKey, null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                }
-                            },
-                            confirmButton = {
-                                Button(onClick = { viewModel.initializeCredentials(newUrl, newKey); showSettings = false },
-                                    colors = ButtonDefaults.buttonColors(containerColor = accent)) {
-                                    Text(Translations.get("apply", language), color = Color.White)
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showSettings = false }) { Text(Translations.get("cancel", language)) }
-                            },
-                            containerColor = if (darkMode) Color(0xFF131A2E) else MaterialTheme.colorScheme.surface
-                        )
-                    }
-                }
-
-                if (showSplash) {
-                    SplashScreen(darkMode = darkMode, onFinished = { showSplash = false })
-                }
+            // Splash
+            AnimatedVisibility(
+                visible = showSplash,
+                exit = fadeOut(tween(400))
+            ) {
+                SplashScreen(onFinished = { showSplash = false })
             }
         }
     }
 }
 
 @Composable
-private fun ConfigsTab(viewModel: MainViewModel, state: UiState<List<SupabaseConfig>>, darkMode: Boolean, accent: Color, language: AppLanguage) {
+private fun ConfigsTab(viewModel: MainViewModel, state: UiState<List<SupabaseConfig>>, language: AppLanguage) {
     val scrollState = rememberLazyListState()
     val context = LocalContext.current
+    val primary = MaterialTheme.colorScheme.primary
 
-    val shouldLoadMore = remember {
+    val shouldLoadMore by remember {
         derivedStateOf {
             val total = scrollState.layoutInfo.totalItemsCount
             val last = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             last >= total - 3 && total > 0 && !viewModel.isConfigEndReached
         }
     }
-    LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) viewModel.loadNextConfigsPage() }
+    LaunchedEffect(shouldLoadMore) { if (shouldLoadMore) viewModel.loadNextConfigsPage() }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TipCard(Translations.get("configs_tip", language), Icons.Default.Info, accent, darkMode)
-
-        when (state) {
-            is UiState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) }
-            is UiState.Error -> ErrorView(state.message) { viewModel.refreshData() }
-            is UiState.Success -> {
-                val configs = state.data
-                if (configs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(Translations.get("empty_db", language), color = Color.Gray, textAlign = TextAlign.Center)
-                    }
-                } else {
-                    LazyColumn(state = scrollState, contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(configs, key = { _, c -> c.id }) { index, config ->
-                            AnimatedItem(index) {
-                                ConfigItemCard(config, darkMode,
-                                    onCopy = { viewModel.copyToClipboard(context, "Config", config.raw_content) },
-                                    onImport = { viewModel.connectHiddifyConfig(context, config.raw_content) }
-                                )
-                            }
+    when (state) {
+        is UiState.Loading -> CenteredProgress(primary)
+        is UiState.Error -> ErrorState(state.message) { viewModel.refreshData() }
+        is UiState.Success -> {
+            if (state.data.isEmpty()) {
+                EmptyState(Translations.get("empty_db", language))
+            } else {
+                LazyColumn(
+                    state = scrollState,
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item { TipBanner(Translations.get("configs_tip", language), Icons.Default.Info, primary) }
+                    itemsIndexed(state.data, key = { _, c -> c.id }) { index, config ->
+                        AnimatedItem(index) {
+                            ConfigItemCard(
+                                config = config,
+                                darkMode = false,
+                                onCopy = { viewModel.copyToClipboard(context, "Config", config.raw_content) },
+                                onImport = { viewModel.connectHiddifyConfig(context, config.raw_content) }
+                            )
                         }
-                        if (!viewModel.isConfigEndReached) {
-                            item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(22.dp), color = accent, strokeWidth = 2.dp) } }
+                    }
+                    if (!viewModel.isConfigEndReached) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(22.dp), color = primary, strokeWidth = 2.dp)
+                            }
                         }
                     }
                 }
@@ -260,43 +282,49 @@ private fun ConfigsTab(viewModel: MainViewModel, state: UiState<List<SupabaseCon
 }
 
 @Composable
-private fun ProxiesTab(viewModel: MainViewModel, state: UiState<List<SupabaseProxy>>, darkMode: Boolean, accent: Color, language: AppLanguage) {
+private fun ProxiesTab(viewModel: MainViewModel, state: UiState<List<SupabaseProxy>>, language: AppLanguage) {
     val scrollState = rememberLazyListState()
     val context = LocalContext.current
+    val primary = MaterialTheme.colorScheme.primary
 
-    val shouldLoadMore = remember {
+    val shouldLoadMore by remember {
         derivedStateOf {
             val total = scrollState.layoutInfo.totalItemsCount
             val last = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             last >= total - 3 && total > 0 && !viewModel.isProxyEndReached
         }
     }
-    LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) viewModel.loadNextProxiesPage() }
+    LaunchedEffect(shouldLoadMore) { if (shouldLoadMore) viewModel.loadNextProxiesPage() }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TipCard(Translations.get("proxies_tip", language), Icons.Default.OfflineBolt, accent, darkMode)
-
-        when (state) {
-            is UiState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) }
-            is UiState.Error -> ErrorView(state.message) { viewModel.refreshData() }
-            is UiState.Success -> {
-                val proxies = state.data
-                if (proxies.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(Translations.get("empty_db", language), color = Color.Gray, textAlign = TextAlign.Center)
-                    }
-                } else {
-                    LazyColumn(state = scrollState, contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(proxies, key = { _, p -> p.id }) { index, proxy ->
-                            AnimatedItem(index) {
-                                ProxyItemCard(proxy, darkMode,
-                                    onCopy = { viewModel.copyToClipboard(context, "Proxy", proxy.tg_link) },
-                                    onConnect = { viewModel.connectProxy(context, proxy.tg_link) }
-                                )
-                            }
+    when (state) {
+        is UiState.Loading -> CenteredProgress(primary)
+        is UiState.Error -> ErrorState(state.message) { viewModel.refreshData() }
+        is UiState.Success -> {
+            if (state.data.isEmpty()) {
+                EmptyState(Translations.get("empty_db", language))
+            } else {
+                LazyColumn(
+                    state = scrollState,
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item { TipBanner(Translations.get("proxies_tip", language), Icons.Default.Bolt, primary) }
+                    itemsIndexed(state.data, key = { _, p -> p.id }) { index, proxy ->
+                        AnimatedItem(index) {
+                            ProxyItemCard(
+                                proxy = proxy,
+                                darkMode = false,
+                                onCopy = { viewModel.copyToClipboard(context, "Proxy", proxy.tg_link) },
+                                onConnect = { viewModel.connectProxy(context, proxy.tg_link) }
+                            )
                         }
-                        if (!viewModel.isProxyEndReached) {
-                            item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(22.dp), color = accent, strokeWidth = 2.dp) } }
+                    }
+                    if (!viewModel.isProxyEndReached) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(22.dp), color = primary, strokeWidth = 2.dp)
+                            }
                         }
                     }
                 }
@@ -306,29 +334,57 @@ private fun ProxiesTab(viewModel: MainViewModel, state: UiState<List<SupabasePro
 }
 
 @Composable
-private fun TipCard(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, accent: Color, darkMode: Boolean) {
+private fun TipBanner(text: String, icon: ImageVector, primary: androidx.compose.ui.graphics.Color) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.06f)),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = primary.copy(alpha = 0.07f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = accent, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text, fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), lineHeight = 15.sp)
+            Icon(icon, null, tint = primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(text, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
         }
     }
 }
 
 @Composable
-private fun ErrorView(message: String, onRetry: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+private fun CenteredProgress(primary: androidx.compose.ui.graphics.Color) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = primary)
+    }
+}
+
+@Composable
+private fun EmptyState(text: String) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.Error, null, tint = Color(0xFFFF5252), modifier = Modifier.size(44.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = onRetry) { Text("Retry") }
+            Icon(Icons.Default.CloudOff, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(48.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(text, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun ErrorState(message: String, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.ErrorOutline, null,
+                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(message, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(16.dp))
+            FilledTonalButton(onClick = onRetry) {
+                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Retry")
+            }
         }
     }
 }
@@ -337,13 +393,12 @@ private fun ErrorView(message: String, onRetry: () -> Unit) {
 fun AnimatedItem(index: Int, content: @Composable () -> Unit) {
     if (index > 5) {
         content()
-    } else {
-        var visible by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) { kotlinx.coroutines.delay(index * 30L); visible = true }
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 5 },
-            exit = fadeOut(tween(100))
-        ) { content() }
+        return
     }
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(index * 40L); visible = true }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 6 }
+    ) { content() }
 }

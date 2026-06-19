@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -8,34 +7,44 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF00E5FF),
-    secondary = Color(0xFF8E8E93),
-    background = Color(0xFF000000),
-    surface = Color(0xFF121212),
-    surfaceVariant = Color(0xFF0A0A0A),
-    onPrimary = Color.Black,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    onSurfaceVariant = Color.White,
-    outline = Color(0xFF2C2C2E)
+    primary = Cyan,
+    onPrimary = DarkBg,
+    primaryContainer = Color(0xFF003344),
+    onPrimaryContainer = Cyan,
+    secondary = PurpleSoft,
+    onSecondary = DarkBg,
+    background = DarkBg,
+    onBackground = DarkText,
+    surface = DarkSurface,
+    onSurface = DarkText,
+    surfaceVariant = DarkCard,
+    onSurfaceVariant = DarkSubText,
+    outline = DarkBorder,
+    error = ErrorRed,
+    onError = DarkBg
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF2979FF),
-    secondary = Color(0xFF8E8E93),
-    background = Color(0xFFF2F2F7),
-    surface = Color.White,
-    surfaceVariant = Color(0xFFF2F2F7),
-    onPrimary = Color.White,
-    onBackground = Color.Black,
-    onSurface = Color.Black,
-    onSurfaceVariant = Color.DarkGray,
-    outline = Color(0xFFE5E5EA)
+    primary = Blue,
+    onPrimary = LightSurface,
+    primaryContainer = Color(0xFFDBEAFE),
+    onPrimaryContainer = BlueDim,
+    secondary = Purple,
+    onSecondary = LightSurface,
+    background = LightBg,
+    onBackground = LightText,
+    surface = LightSurface,
+    onSurface = LightText,
+    surfaceVariant = LightCard,
+    onSurfaceVariant = LightSubText,
+    outline = LightBorder,
+    error = ErrorRed,
+    onError = LightSurface
 )
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(

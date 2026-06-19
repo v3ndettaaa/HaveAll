@@ -2,15 +2,28 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val RichBlack = Color(0xFF000000)
-val ElevatedDark = Color(0xFF0A0A0A)
-val CardBackgroundDark = Color(0xFF121212)
-val NeonGreen = Color(0xFF00E5FF)
-val TextGray = Color(0xFF8E8E93)
-val DividerGray = Color(0xFF2C2C2E)
+// Dark palette
+val DarkBg = Color(0xFF060B14)
+val DarkSurface = Color(0xFF0D1421)
+val DarkCard = Color(0xFF111827)
+val DarkBorder = Color(0xFF1E2D45)
+val Cyan = Color(0xFF00D4FF)
+val CyanDim = Color(0xFF0099BB)
+val Purple = Color(0xFF7C3AED)
+val PurpleSoft = Color(0xFF9061F9)
+val DarkText = Color(0xFFE8F4FD)
+val DarkSubText = Color(0xFF6B8299)
 
-val CleanWhite = Color(0xFFFFFFFF)
-val SoftGrayBackground = Color(0xFFF2F2F7)
-val CardBackgroundLight = Color(0xFFFFFFFF)
-val TechDarkBlue = Color(0xFF2979FF)
-val ShadowGray = Color(0xFFE5E5EA)
+// Light palette
+val LightBg = Color(0xFFF0F4F8)
+val LightSurface = Color(0xFFFFFFFF)
+val LightCard = Color(0xFFFFFFFF)
+val LightBorder = Color(0xFFE2E8F0)
+val Blue = Color(0xFF2563EB)
+val BlueDim = Color(0xFF1D4ED8)
+val LightText = Color(0xFF0F172A)
+val LightSubText = Color(0xFF64748B)
+
+// Shared
+val ErrorRed = Color(0xFFEF4444)
+val SuccessGreen = Color(0xFF10B981)
