@@ -44,7 +44,7 @@ A stunning, space-themed Material 3 client application built natively to retriev
 ## ⚙️ Configuration Setup
 To initialize the cluster locally or in cloud container hosting, save the credentials below inside your `.env` workspace:
 `BOT_TOKEN`=Your_Telegram_Token_From_BotFather  
-`ADMIN_IDS`=Comma_Separated_Admin_Chat_IDs_Example_5196798256  
+`ADMIN_IDS`=Comma_Separated_Admin_Chat_IDs_Example_  
 `SUPABASE_URL`=https://your-project.supabase.co  
 `SUPABASE_KEY`=your-secret-anon-or-service-role-key  
 
