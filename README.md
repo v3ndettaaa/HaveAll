@@ -58,29 +58,35 @@ The bot features clean, beautifully organized console logs right in your server 
 
 ---
 
-## 🐳 Running on a VPS using Docker
-You can run the bot on any Linux VPS with seamless, offline-first reliability using Docker and Docker Compose.
+## ⚡ Quick Install
 
-### Step 1: Create your environment configuration
-Create a `.env` file inside the `./telegram_bot` directory:
-```env
-BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
-ADMIN_IDS=YOUR_TELEGRAM_CHAT_ID
-SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
-SUPABASE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
-```
+Run the installer from the project root:
 
-### Step 2: Spin up the container stack
-Simply execute the following command in either the **root directory** or inside **`./telegram_bot`**:
 ```bash
-docker-compose up -d --build
+chmod +x install.sh
+./install.sh
 ```
-This will build the slim Python container, mount a permanent Docker volume to persist registered group chats across system restarts (`group_data`), and daemonize the bot with automated standard crash recovery policies.
 
-### Administrative Management commands:
-- **View Live Activity Logs**: `docker logs -f haveall_telegram_bot`
-- **Stop current stack**: `docker-compose down`
-- **Restart Stack**: `docker-compose restart`
+The script will:
+1. Let you choose **Docker** or **Native** installation
+2. Prompt for your `.env` credentials (Bot Token, Admin ID, Supabase URL/Key)
+3. Stop any existing bot instance before starting
+4. Install dependencies and launch the bot
+
+### Docker mode
+- Auto-installs Docker if missing
+- Builds and runs the container in detached mode
+- Manage with:
+```bash
+docker logs -f haveall_telegram_bot     # View logs
+docker restart haveall_telegram_bot     # Restart
+docker stop haveall_telegram_bot        # Stop
+```
+
+### Native mode
+- Installs `uv` package manager if missing
+- Creates `.venv` and installs dependencies
+- Runs the bot directly in your terminal
 
 ---
 
