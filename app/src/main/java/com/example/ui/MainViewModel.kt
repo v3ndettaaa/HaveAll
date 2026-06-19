@@ -20,10 +20,10 @@ sealed interface UiState<out T> {
 
 class MainViewModel : ViewModel() {
 
-    private val _supabaseUrl = MutableStateFlow<String>("")
+    private val _supabaseUrl = MutableStateFlow("")
     val supabaseUrl: StateFlow<String> = _supabaseUrl.asStateFlow()
 
-    private val _supabaseKey = MutableStateFlow<String>("")
+    private val _supabaseKey = MutableStateFlow("")
     val supabaseKey: StateFlow<String> = _supabaseKey.asStateFlow()
 
     private val _proxiesState = MutableStateFlow<UiState<List<SupabaseProxy>>>(UiState.Loading)
@@ -32,14 +32,12 @@ class MainViewModel : ViewModel() {
     private val _configsState = MutableStateFlow<UiState<List<SupabaseConfig>>>(UiState.Loading)
     val configsState: StateFlow<UiState<List<SupabaseConfig>>> = _configsState.asStateFlow()
 
-    // Administrative state flow
     private val _channelsState = MutableStateFlow<UiState<List<SupabaseChannel>>>(UiState.Loading)
     val channelsState: StateFlow<UiState<List<SupabaseChannel>>> = _channelsState.asStateFlow()
 
     private val _subscriptionsState = MutableStateFlow<UiState<List<SupabaseSubscription>>>(UiState.Loading)
     val subscriptionsState: StateFlow<UiState<List<SupabaseSubscription>>> = _subscriptionsState.asStateFlow()
 
-    // Pagination management
     private var proxiesOffset = 0
     private var configsOffset = 0
     private val limit = 20
@@ -58,7 +56,7 @@ class MainViewModel : ViewModel() {
         if (url.isNotEmpty() && key.isNotEmpty()) {
             refreshData()
         } else {
-            val missingMsg = "Supabase credentials missing! Click settings below to configure."
+            val missingMsg = "Supabase credentials missing! Click settings to configure."
             _proxiesState.value = UiState.Error(missingMsg)
             _configsState.value = UiState.Error(missingMsg)
             _channelsState.value = UiState.Error(missingMsg)
@@ -73,7 +71,6 @@ class MainViewModel : ViewModel() {
         isProxyEndReached = false
         loadedProxies.clear()
         loadedConfigs.clear()
-        
         loadNextProxiesPage()
         loadNextConfigsPage()
         loadMonitoredChannels()
@@ -86,9 +83,7 @@ class MainViewModel : ViewModel() {
         if (url.isEmpty() || key.isEmpty() || isProxyEndReached) return
 
         viewModelScope.launch {
-            if (proxiesOffset == 0) {
-                _proxiesState.value = UiState.Loading
-            }
+            if (proxiesOffset == 0) _proxiesState.value = UiState.Loading
             try {
                 val api = RetrofitClient.createService(url)
                 val response = api.getProxies(apiKey = key, authHeader = "Bearer $key", limit = limit, offset = proxiesOffset)
@@ -100,7 +95,7 @@ class MainViewModel : ViewModel() {
                 }
                 _proxiesState.value = UiState.Success(loadedProxies.toList())
             } catch (e: Exception) {
-                _proxiesState.value = UiState.Error("Failed to load proxies: ${e.localizedMessage ?: e.message}")
+                _proxiesState.value = UiState.Error("Failed to load proxies: ${e.localizedMessage ?: "Unknown error"}")
             }
         }
     }
@@ -111,9 +106,7 @@ class MainViewModel : ViewModel() {
         if (url.isEmpty() || key.isEmpty() || isConfigEndReached) return
 
         viewModelScope.launch {
-            if (configsOffset == 0) {
-                _configsState.value = UiState.Loading
-            }
+            if (configsOffset == 0) _configsState.value = UiState.Loading
             try {
                 val api = RetrofitClient.createService(url)
                 val response = api.getConfigs(apiKey = key, authHeader = "Bearer $key", limit = limit, offset = configsOffset)
@@ -125,7 +118,7 @@ class MainViewModel : ViewModel() {
                 }
                 _configsState.value = UiState.Success(loadedConfigs.toList())
             } catch (e: Exception) {
-                _configsState.value = UiState.Error("Failed to load configs: ${e.localizedMessage ?: e.message}")
+                _configsState.value = UiState.Error("Failed to load configs: ${e.localizedMessage ?: "Unknown error"}")
             }
         }
     }
@@ -142,7 +135,7 @@ class MainViewModel : ViewModel() {
                 val channels = api.getMonitoredChannels(apiKey = key, authHeader = "Bearer $key")
                 _channelsState.value = UiState.Success(channels)
             } catch (e: Exception) {
-                _channelsState.value = UiState.Error("Failed to load custom channels: ${e.localizedMessage ?: e.message}")
+                _channelsState.value = UiState.Error("Failed to load channels: ${e.localizedMessage ?: "Unknown error"}")
             }
         }
     }
@@ -156,15 +149,11 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val api = RetrofitClient.createService(url)
-                api.addMonitoredChannel(
-                    apiKey = key,
-                    authHeader = "Bearer $key",
-                    request = AddChannelRequest(username = cleanedName)
-                )
-                Toast.makeText(context, "Added @$cleanedName successfully!", Toast.LENGTH_SHORT).show()
+                api.addMonitoredChannel(apiKey = key, authHeader = "Bearer $key", request = AddChannelRequest(username = cleanedName))
+                Toast.makeText(context, "Added @$cleanedName", Toast.LENGTH_SHORT).show()
                 loadMonitoredChannels()
             } catch (e: Exception) {
-                Toast.makeText(context, "Insert failed: ${e.localizedMessage ?: e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Failed: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -177,15 +166,11 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val api = RetrofitClient.createService(url)
-                api.deleteMonitoredChannel(
-                    apiKey = key,
-                    authHeader = "Bearer $key",
-                    username = "eq.$username" // Matches exact username row via PostgRESTeq query
-                )
-                Toast.makeText(context, "Removed @$username!", Toast.LENGTH_SHORT).show()
+                api.deleteMonitoredChannel(apiKey = key, authHeader = "Bearer $key", username = "eq.$username")
+                Toast.makeText(context, "Removed @$username", Toast.LENGTH_SHORT).show()
                 loadMonitoredChannels()
             } catch (e: Exception) {
-                // PostgREST eq deletes can sometimes return void; if delete operation is void, capture it softly
+                Toast.makeText(context, "Failed to remove: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
                 loadMonitoredChannels()
             }
         }
@@ -203,7 +188,7 @@ class MainViewModel : ViewModel() {
                 val subs = api.getSubscriptions(apiKey = key, authHeader = "Bearer $key")
                 _subscriptionsState.value = UiState.Success(subs)
             } catch (e: Exception) {
-                _subscriptionsState.value = UiState.Error("Failed to load subs: ${e.localizedMessage ?: e.message}")
+                _subscriptionsState.value = UiState.Error("Failed to load subscriptions: ${e.localizedMessage ?: "Unknown error"}")
             }
         }
     }
@@ -216,15 +201,11 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val api = RetrofitClient.createService(url)
-                api.addSubscription(
-                    apiKey = key,
-                    authHeader = "Bearer $key",
-                    request = AddSubscriptionRequest(url = linkUrl, remarks = remarks)
-                )
-                Toast.makeText(context, "Added subscription successfully!", Toast.LENGTH_SHORT).show()
+                api.addSubscription(apiKey = key, authHeader = "Bearer $key", request = AddSubscriptionRequest(url = linkUrl, remarks = remarks))
+                Toast.makeText(context, "Subscription added", Toast.LENGTH_SHORT).show()
                 loadSubscriptions()
             } catch (e: Exception) {
-                Toast.makeText(context, "Insert failed: ${e.localizedMessage ?: e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Failed: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -237,38 +218,39 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val api = RetrofitClient.createService(url)
-                api.deleteSubscription(
-                    apiKey = key,
-                    authHeader = "Bearer $key",
-                    url = "eq.$linkUrl"
-                )
-                Toast.makeText(context, "Removed subscription pool!", Toast.LENGTH_SHORT).show()
+                api.deleteSubscription(apiKey = key, authHeader = "Bearer $key", url = "eq.$linkUrl")
+                Toast.makeText(context, "Subscription removed", Toast.LENGTH_SHORT).show()
                 loadSubscriptions()
             } catch (e: Exception) {
+                Toast.makeText(context, "Failed to remove: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
                 loadSubscriptions()
             }
         }
     }
 
-    // Connect to MTProto Telegram proxy
     fun connectProxy(context: Context, tgLink: String) {
         try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tgLink))
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Telegram app not found or could not open!", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Telegram not installed", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Connect config via hiddify app schema
     fun connectHiddifyConfig(context: Context, rawConfig: String) {
         try {
-            val prefixScheme = "hiddify://import/#"
-            val uri = Uri.parse("$prefixScheme$rawConfig")
+            val uri = Uri.parse("hiddify://import/#$rawConfig")
             val intent = Intent(Intent.ACTION_VIEW, uri)
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Hiddify app not installed or schema import failed!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Hiddify not installed", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    fun copyToClipboard(context: Context, label: String, text: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
     }
 }

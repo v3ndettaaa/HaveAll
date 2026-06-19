@@ -9,7 +9,6 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.*
 import java.util.concurrent.TimeUnit
 
-// Models matching Supabase tables
 data class SupabaseConfig(
     val id: Long = 0,
     val type: String = "vmess",
@@ -40,15 +39,8 @@ data class SupabaseSubscription(
     val created_at: String = ""
 )
 
-// Request body for inserting channels
-data class AddChannelRequest(
-    val username: String
-)
-
-data class AddSubscriptionRequest(
-    val url: String,
-    val remarks: String
-)
+data class AddChannelRequest(val username: String)
+data class AddSubscriptionRequest(val url: String, val remarks: String)
 
 interface SupabaseApi {
     @GET("rest/v1/configs")
@@ -71,7 +63,6 @@ interface SupabaseApi {
         @Query("order") order: String = "created_at.desc"
     ): List<SupabaseProxy>
 
-    // Admin monitored channels controls
     @GET("rest/v1/monitored_channels")
     suspend fun getMonitoredChannels(
         @Header("apikey") apiKey: String,
@@ -95,7 +86,6 @@ interface SupabaseApi {
         @Query("username") username: String
     )
 
-    // Admin subscription pools controls
     @GET("rest/v1/subscriptions")
     suspend fun getSubscriptions(
         @Header("apikey") apiKey: String,
@@ -125,24 +115,40 @@ object RetrofitClient {
         .add(KotlinJsonAdapterFactory())
         .build()
 
+    private val sharedClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+
+    @Volatile
+    private var currentBaseUrl: String? = null
+    @Volatile
+    private var currentApi: SupabaseApi? = null
+
     fun createService(baseUrl: String): SupabaseApi {
         val formattedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
 
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+        currentApi?.let { api ->
+            if (currentBaseUrl == formattedUrl) return api
         }
 
-        val client = OkHttpClient.Builder()
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BASIC
+        }
+
+        val client = sharedClient.newBuilder()
             .addInterceptor(logging)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
             .build()
 
-        return Retrofit.Builder()
+        val api = Retrofit.Builder()
             .baseUrl(formattedUrl)
             .client(client)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(SupabaseApi::class.java)
+
+        currentBaseUrl = formattedUrl
+        currentApi = api
+        return api
     }
 }
