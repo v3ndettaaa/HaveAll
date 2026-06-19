@@ -197,12 +197,14 @@ async def receive_ips(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     if not ips:
         await update.message.reply_text("No valid IPs found. Please send IPs again (one per line), or /cancel.")
+        await delete_user_message(update, context)
         return REPLACE_IP_IPLIST
 
     await update.message.reply_text(
         f"Received **{len(ips)}** IP(s).\nNow send the **configs** (text or .txt/.yaml file).\n\nUse /cancel to abort.",
         parse_mode="Markdown",
     )
+    await delete_user_message(update, context)
     return REPLACE_IP_CONFIGS
 
 async def receive_configs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -251,6 +253,7 @@ async def receive_configs(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
 
     os.remove(file_path)
+    await delete_user_message(update, context)
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -260,6 +263,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Replacement cancelled.")
     else:
         await update.message.reply_text("Replacement cancelled.")
+        await delete_user_message(update, context)
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -403,8 +407,27 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                     await query.answer(text, show_alert=True)
                 return
 
-            sample_size = min(150, len(all_configs))
-            sampled_items = random.sample(all_configs, sample_size)
+            # Fair stratified sampling: distribute 150 across sources proportionally
+            TARGET = 150
+            by_source = {}
+            for c in all_configs:
+                src = c.get("remarks", "Unknown")
+                by_source.setdefault(src, []).append(c)
+
+            total = len(all_configs)
+            sampled_items = []
+            for src, items in by_source.items():
+                share = max(1, round(len(items) / total * TARGET))
+                sampled_items.extend(random.sample(items, min(share, len(items))))
+
+            # Trim or pad to exactly TARGET
+            if len(sampled_items) > TARGET:
+                sampled_items = random.sample(sampled_items, TARGET)
+            elif len(sampled_items) < TARGET and len(all_configs) >= TARGET:
+                remaining = [c for c in all_configs if c not in sampled_items]
+                sampled_items.extend(random.sample(remaining, TARGET - len(sampled_items)))
+
+            random.shuffle(sampled_items)
             
             configs_raw = [entry["raw_content"] for entry in sampled_items]
             file_content = "\n\n".join(configs_raw)
@@ -422,7 +445,7 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                     filename=file_path,
                     caption=(
                         "📂 **HAVEALL CONFIGS** 📂\n"
-                        f"Extracted {len(sampled_items)} configs. Import into Hiddify or v2rayNG client app."
+                        f"Extracted {len(sampled_items)} configs from {len(by_source)} sources. Import into Hiddify or v2rayNG."
                     ),
                     parse_mode="Markdown"
                 )
