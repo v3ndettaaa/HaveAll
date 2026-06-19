@@ -44,9 +44,12 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Create .env file for secrets plugin
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}" > .env
-          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY || 'placeholder_key' }}" >> .env
+          echo "SUPABASE_URL=${SUPABASE_URL:-https://placeholder.supabase.co}" > .env
+          echo "SUPABASE_KEY=${SUPABASE_KEY:-placeholder_key}" >> .env
           echo "GEMINI_API_KEY=placeholder" >> .env
 
       - name: Build Debug APK
