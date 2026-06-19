@@ -943,10 +943,18 @@ def main():
             CommandHandler("replaceip", start_replace_ip),
         ],
         states={
-            REPLACE_IP_IPLIST: [MessageHandler(filters.TEXT | filters.Document.ALL, receive_ips)],
-            REPLACE_IP_CONFIGS: [MessageHandler(filters.TEXT | filters.Document.ALL, receive_configs)],
+            REPLACE_IP_IPLIST: [MessageHandler((filters.TEXT | filters.Document.ALL) & ~filters.COMMAND, receive_ips)],
+            REPLACE_IP_CONFIGS: [MessageHandler((filters.TEXT | filters.Document.ALL) & ~filters.COMMAND, receive_configs)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[
+            CommandHandler("cancel", cancel),
+            CommandHandler("start", start),
+            CommandHandler("scrape", scrape_command),
+            CommandHandler("addchannel", add_channel),
+            CommandHandler("removechannel", remove_channel),
+            CommandHandler("addsub", add_subscription_command),
+            CommandHandler("removesub", remove_subscription_command),
+        ],
     )
     app.add_handler(replace_ip_handler)
     app.add_handler(CommandHandler("start", start))

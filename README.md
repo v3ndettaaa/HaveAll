@@ -9,11 +9,17 @@ The Telegram bot acts as the automated scraping and administrative brain of the 
 - **Automatic 30-Minute Sync**: Every 30 minutes, the bot runs a synchronized crawler over official, high-quality GitHub subscription sources and specified crawlable Telegram proxy channels.
 - **Protocol Scraper & Decoder**: Handles complex formats including manual YAML parser arrays and base64-encoded subscription strings for standard protocols (`vless`, `vmess`, `shadowsocks`, `hysteria`, `trojan`).
 - **Dynamic Group Broadcast Alert**: Automatically saves every telegram group ID it joins and broadcasts beautiful, glassmorphic network update announcements on every scraper completion cycle.
-- **Administrative Command Portal**:
+- **All User Commands**:
   - `/start` - Access the responsive main keyboard dashboard.
+  - `/replaceip` - Replace server IPs in VPN configs (supports vmess, vless, trojan, ss, hysteria, tuic).
+  - `/cancel` - Cancel the current operation.
+- **Administrative Commands**:
   - `/scrape` - Triggers an immediate manual network sync bypassing the timer.
   - `/addchannel [username]` - Registers custom Telegram proxy channels directly into the centralized Supabase database.
   - `/removechannel [username]` - Revokes monitored custom channel access.
+  - `/addsub [url] [remarks]` - Adds a new subscription URL to scrape from.
+  - `/removesub [id]` - Removes a subscription URL by ID.
+- **Inline Mode**: Type `@YourBotName` in any chat to share proxies or configs instantly.
 - **Glassmorphic Interactive Messages**:
   - **MTProto Proxies Selector**: Outputs a clean "enjoy" greeting containing zero raw IP metadata with a layout grid of sleek "have?" buttons pointing to connecting proxy schemes.
   - **150 Configs Bundle**: Randomly mixes and exports exactly 150 elite VPN tunnel subscription nodes inside a cleanly generated `.txt` file for direct import.
@@ -75,5 +81,51 @@ This will build the slim Python container, mount a permanent Docker volume to pe
 - **View Live Activity Logs**: `docker logs -f haveall_telegram_bot`
 - **Stop current stack**: `docker-compose down`
 - **Restart Stack**: `docker-compose restart`
+
+---
+
+## 🛠 BotFather Setup Guide
+
+After deploying, configure your bot in **@BotFather** for the best user experience:
+
+### 1. Register Menu Commands
+Send `/setcommands` to BotFather, select your bot, then paste:
+```
+start - Open main menu
+replaceip - Replace IPs in VPN configs
+cancel - Cancel current operation
+scrape - Manual scraper sync (admin)
+addchannel - Add channel to scrape (admin)
+removechannel - Remove scraped channel (admin)
+addsub - Add subscription URL (admin)
+removesub - Remove subscription URL (admin)
+```
+
+### 2. Set Menu Button
+Send `/setmenubutton` to BotFather, select your bot, then set:
+- **Button text**: `Open Portal`
+- **URL**: `https://t.me/YourBotName?start=menu`
+
+### 3. Enable Inline Mode
+Send `/setinline` to BotFather, select your bot, then set:
+- **Placeholder text**: `Search proxies or configs...`
+
+### 4. Set Bot Description
+Send `/setdescription` and set a clear description users see before starting:
+```
+HaveAll Portal — Free VPN proxies & configs. Scraped every 30 min from verified sources.
+```
+
+### 5. Set About Section
+Send `/setabouttext`:
+```
+Zero-cost, high-speed tunnel scraper. Proxies + configs for v2ray, Hiddify, v2rayNG.
+```
+
+### 6. Set Profile Photo
+Send `/setuserpic` and upload a logo/icon for your bot.
+
+### 7. Group Privacy (Optional)
+Send `/setprivacy` → set to **Disabled** if you want the bot to see all group messages (required for auto-detecting group chat IDs for broadcast).
 
 ***Enjoy pristine, zero-throttle networking with style!*** 🧊💎
