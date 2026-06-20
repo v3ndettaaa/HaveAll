@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { DarkColors } from '../theme/colors';
 
 interface Props {
@@ -7,42 +7,21 @@ interface Props {
 }
 
 export default function SplashScreen({ onFinished }: Props) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.75)).current;
-  const rotation = useRef(new Animated.Value(0)).current;
-  const glow = useRef(new Animated.Value(0.4)).current;
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, damping: 8, stiffness: 80, useNativeDriver: true }),
-    ]).start();
-
-    Animated.loop(
-      Animated.timing(rotation, { toValue: 1, duration: 3000, useNativeDriver: true })
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, { toValue: 1, duration: 1400, useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 0.4, duration: 1400, useNativeDriver: true }),
-      ])
-    ).start();
-
+    setVisible(true);
     const timer = setTimeout(onFinished, 2200);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const rotate = rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
   return (
-    <Animated.View style={[styles.container, { opacity }]}>
-      <Animated.View style={[styles.inner, { transform: [{ scale }] }]}>
+    <View style={styles.container}>
+      <View style={[styles.inner, { opacity: visible ? 1 : 0 }]}>
         <View style={styles.logoWrap}>
-          <Animated.View
-            style={[styles.ring, { transform: [{ rotate }] }]}
-          />
-          <View style={[styles.glowCircle, { opacity: glow }]}>
+          <View style={styles.ring} />
+          <View style={styles.glowCircle}>
             <Text style={styles.hubIcon}>⬡</Text>
           </View>
         </View>
@@ -51,12 +30,10 @@ export default function SplashScreen({ onFinished }: Props) {
         <View style={styles.progressBar}>
           <View style={styles.progressFill} />
         </View>
-      </Animated.View>
-    </Animated.View>
+      </View>
+    </View>
   );
 }
-
-const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -65,7 +42,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  inner: { alignItems: 'center' },
+  inner: {
+    alignItems: 'center',
+  },
   logoWrap: {
     width: 120,
     height: 120,
@@ -97,12 +76,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     color: DarkColors.text,
+    fontFamily: 'Vazir-Bold',
     letterSpacing: 2,
     marginTop: 28,
   },
   subtitle: {
     fontSize: 14,
     color: DarkColors.primary,
+    fontFamily: 'Vazir-Regular',
     fontWeight: '500',
     marginTop: 4,
   },

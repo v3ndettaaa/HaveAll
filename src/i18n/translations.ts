@@ -19,7 +19,7 @@ const en: Record<string, string> = {
   admin_desc: 'Manage monitored channels and subscription sources.',
   chan_placeholder: 'Channel name (without @)',
   add_chan: 'Add Channel',
-  monitored_list: 'MONITORED CHANNELS',
+  monitored_list: 'CHANNELS',
   sync_interval: 'Sync: Every 30 min',
   empty_db: 'No data yet. Run scraper on bot first.',
   server: 'Server',
@@ -36,6 +36,12 @@ const en: Record<string, string> = {
   retry: 'Retry',
   loading: 'Loading...',
   settings: 'Settings',
+  load_more: 'Load More',
+  end_of_list: 'All items loaded',
+  ping: 'Ping',
+  ping_ms: 'ms',
+  ping_timeout: 'Timeout',
+  measuring: 'Measuring...',
 };
 
 const fa: Record<string, string> = {
@@ -57,7 +63,7 @@ const fa: Record<string, string> = {
   admin_desc: 'مدیریت کانال\u200cها و منابع اشتراک.',
   chan_placeholder: 'نام کانال (بدون @)',
   add_chan: 'افزودن کانال',
-  monitored_list: 'کانال\u200cهای تحت نظارت',
+  monitored_list: 'کانال\u200cها',
   sync_interval: 'همگام\u200cسازی: هر ۳۰ دقیقه',
   empty_db: 'داده\u200cای موجود نیست. ابتدا ربات را اجرا کنید.',
   server: 'سرور',
@@ -74,6 +80,12 @@ const fa: Record<string, string> = {
   retry: 'تلاش مجدد',
   loading: 'در حال بارگذاری...',
   settings: 'تنظیمات',
+  load_more: 'بارگذاری بیشتر',
+  end_of_list: 'همه موارد بارگذاری شد',
+  ping: 'پینگ',
+  ping_ms: 'میلی\u200cثانیه',
+  ping_timeout: 'تایم\u200cاوت',
+  measuring: 'اندازه\u200cگیری...',
 };
 
 export function t(key: string, lang: AppLanguage): string {

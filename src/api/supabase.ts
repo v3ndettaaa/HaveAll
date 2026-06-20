@@ -4,6 +4,7 @@ export interface SupabaseConfig {
   raw_content: string;
   remarks: string | null;
   created_at: string;
+  ping?: number | null;
 }
 
 export interface SupabaseProxy {
@@ -13,6 +14,7 @@ export interface SupabaseProxy {
   secret: string;
   tg_link: string;
   created_at: string;
+  ping?: number | null;
 }
 
 export interface SupabaseChannel {
@@ -26,6 +28,45 @@ export interface SupabaseSubscription {
   url: string;
   remarks: string | null;
   created_at: string;
+}
+
+export function extractServerFromConfig(raw: string): { host: string; port: number } | null {
+  try {
+    const cleaned = raw.trim();
+    const afterProtocol = cleaned.replace(/^(vless|vmess|trojan|ss|ssr|hysteria|tuic):\/\//, '');
+    const atIndex = afterProtocol.indexOf('@');
+    if (atIndex < 0) return null;
+    const hostPort = afterProtocol.substring(atIndex + 1);
+    const questionIdx = hostPort.indexOf('?');
+    const hp = questionIdx > 0 ? hostPort.substring(0, questionIdx) : hostPort;
+    const colonIdx = hp.lastIndexOf(':');
+    if (colonIdx < 0) return null;
+    const host = hp.substring(0, colonIdx);
+    const port = parseInt(hp.substring(colonIdx + 1), 10);
+    if (!host || isNaN(port)) return null;
+    return { host, port };
+  } catch {
+    return null;
+  }
+}
+
+export function measurePing(host: string, port: number, timeoutMs = 4000): Promise<number | null> {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    let done = false;
+    const finish = (ms: number) => {
+      if (done) return;
+      done = true;
+      try { ws.close(); } catch {}
+      clearTimeout(timer);
+      resolve(ms);
+    };
+    const timer = setTimeout(() => finish(Math.round(performance.now() - start)), timeoutMs);
+    const ws = new WebSocket(`wss://${host}:${port}`);
+    ws.onopen = () => finish(Math.round(performance.now() - start));
+    ws.onerror = () => finish(Math.round(performance.now() - start));
+    ws.onclose = () => finish(Math.round(performance.now() - start));
+  });
 }
 
 class SupabaseClient {

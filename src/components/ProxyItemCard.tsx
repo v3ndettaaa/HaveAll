@@ -1,63 +1,96 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SupabaseProxy } from '../api/supabase';
 import { Colors } from '../theme/colors';
+import { useLang } from '../i18n/LangContext';
+import { t } from '../i18n/translations';
 
 interface Props {
   proxy: SupabaseProxy;
   colors: Colors;
+  index: number;
   onCopy: () => void;
   onConnect: () => void;
 }
 
-export default function ProxyItemCard({ proxy, colors, onCopy, onConnect }: Props) {
+export default function ProxyItemCard({ proxy, colors, index, onCopy, onConnect }: Props) {
+  const { language, fontFamily, fontFamilyMedium } = useLang();
+  const ping = proxy.ping ?? null;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    const delay = Math.min(index, 8) * 80;
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, delay, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 400, delay, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const getPingColor = () => {
+    if (ping === null) return colors.subText;
+    if (ping < 200) return '#10B981';
+    if (ping < 500) return '#F59E0B';
+    return '#EF4444';
+  };
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.iconBox, { backgroundColor: `${colors.primary}1F` }]}>
-            <Ionicons name="radio-outline" size={18} color={colors.primary} />
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={[styles.iconBox, { backgroundColor: `${colors.primary}1F` }]}>
+              <Ionicons name="radio-outline" size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.title, { color: colors.text, fontFamily: fontFamilyMedium }]}>MTProto</Text>
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>MTProto</Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.pingBadge, { backgroundColor: `${getPingColor()}20` }]}>
+              <View style={[styles.pingDot, { backgroundColor: getPingColor() }]} />
+              <Text style={[styles.pingText, { color: getPingColor(), fontFamily }]}>
+                {ping !== null ? `${ping} ${t('ping_ms', language)}` : t('ping_timeout', language)}
+              </Text>
+            </View>
+            <View style={[styles.idBadge, { backgroundColor: `${colors.primary}1F` }]}>
+              <Text style={[styles.idText, { color: colors.primary, fontFamily }]}>#{proxy.id}</Text>
+            </View>
+          </View>
         </View>
-        <View style={[styles.idBadge, { backgroundColor: `${colors.primary}1F` }]}>
-          <Text style={[styles.idText, { color: colors.primary }]}>#{proxy.id}</Text>
+
+        <View style={[styles.details, { backgroundColor: colors.bg }]}>
+          <DetailRow label={t('server', language)} value={proxy.server} colors={colors} fontFamily={fontFamily} />
+          <DetailRow label={t('port', language)} value={String(proxy.port)} colors={colors} fontFamily={fontFamily} />
+          <DetailRow label={t('secret', language)} value={proxy.secret} colors={colors} fontFamily={fontFamily} />
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.btn, { borderColor: colors.border }]}
+            onPress={onCopy}
+          >
+            <Ionicons name="copy-outline" size={14} color={colors.text} />
+            <Text style={[styles.btnText, { color: colors.text, fontFamily }]}>{t('copy', language)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btn, { backgroundColor: colors.primary }]}
+            onPress={onConnect}
+          >
+            <Ionicons name="send-outline" size={14} color={colors.bg} />
+            <Text style={[styles.btnText, { color: colors.bg, fontFamily }]}>Telegram</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      <View style={[styles.details, { backgroundColor: colors.bg }]}>
-        <DetailRow label="Server" value={proxy.server} colors={colors} />
-        <DetailRow label="Port" value={String(proxy.port)} colors={colors} />
-        <DetailRow label="Secret" value={proxy.secret} colors={colors} />
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.btn, { borderColor: colors.border }]}
-          onPress={onCopy}
-        >
-          <Ionicons name="copy-outline" size={14} color={colors.text} />
-          <Text style={[styles.btnText, { color: colors.text }]}>Copy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.btn, { backgroundColor: colors.primary }]}
-          onPress={onConnect}
-        >
-          <Ionicons name="send-outline" size={14} color={colors.bg} />
-          <Text style={[styles.btnText, { color: colors.bg }]}>Telegram</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </Animated.View>
   );
 }
 
-function DetailRow({ label, value, colors }: { label: string; value: string; colors: Colors }) {
+function DetailRow({ label, value, colors, fontFamily }: { label: string; value: string; colors: Colors; fontFamily?: string }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={[styles.detailLabel, { color: colors.subText }]}>{label}</Text>
+      <Text style={[styles.detailLabel, { color: colors.subText, fontFamily }]}>{label}</Text>
       <Text
-        style={[styles.detailValue, { color: colors.text }]}
+        style={[styles.detailValue, { color: colors.text, fontFamily }]}
         numberOfLines={1}
         ellipsizeMode="tail"
       >
@@ -85,6 +118,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   iconBox: {
     width: 32,
     height: 32,
@@ -96,6 +134,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  pingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  pingText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
   idBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -104,7 +159,6 @@ const styles = StyleSheet.create({
   idText: {
     fontSize: 10,
     fontWeight: '700',
-    fontFamily: 'monospace',
   },
   details: {
     borderRadius: 10,
@@ -122,7 +176,6 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 11,
-    fontFamily: 'monospace',
     maxWidth: 180,
   },
   actions: {

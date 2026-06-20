@@ -22,20 +22,36 @@ import {
   SupabaseChannel,
   SupabaseSubscription,
   api,
+  measurePing,
+  extractServerFromConfig,
 } from '../api/supabase';
+import { loadStoredConfig, saveStoredConfig } from '../api/storage';
 import { DarkColors, LightColors, Colors } from '../theme/colors';
-import { AppLanguage, t } from '../i18n/translations';
-import ConfigItemCard from './ConfigItemCard';
-import ProxyItemCard from './ProxyItemCard';
-import AdminPanel from './AdminPanel';
-import SplashScreen from './SplashScreen';
+import { t } from '../i18n/translations';
+import { LangProvider, useLang } from '../i18n/LangContext';
+import ConfigItemCard from '../components/ConfigItemCard';
+import ProxyItemCard from '../components/ProxyItemCard';
+import AdminPanel from '../components/AdminPanel';
+import SplashScreen from '../components/SplashScreen';
 
 type Tab = 'configs' | 'proxies' | 'admin';
+const PAGE_SIZE = 20;
 
 export default function MainScreen() {
   const [showSplash, setShowSplash] = useState(true);
+
+  return (
+    <LangProvider>
+      {showSplash
+        ? <SplashScreen onFinished={() => setShowSplash(false)} />
+        : <MainContent />}
+    </LangProvider>
+  );
+}
+
+function MainContent() {
+  const { language, setLanguage, fontFamily, fontFamilyBold } = useLang();
   const [darkMode, setDarkMode] = useState(true);
-  const [language, setLanguage] = useState<AppLanguage>('EN');
   const [tab, setTab] = useState<Tab>('configs');
   const [showSettings, setShowSettings] = useState(false);
 
@@ -51,28 +67,87 @@ export default function MainScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [configOffset, setConfigOffset] = useState(0);
+  const [proxyOffset, setProxyOffset] = useState(0);
+  const [configHasMore, setConfigHasMore] = useState(true);
+  const [proxyHasMore, setProxyHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const colors: Colors = darkMode ? DarkColors : LightColors;
   const insets = useSafeAreaInsets();
 
-  const loadData = useCallback(async () => {
-    if (!supabaseUrl || !supabaseKey) {
+  useEffect(() => {
+    (async () => {
+      const stored = await loadStoredConfig();
+      if (stored && stored.supabaseUrl && stored.supabaseKey) {
+        setSupabaseUrl(stored.supabaseUrl);
+        setSupabaseKey(stored.supabaseKey);
+      } else {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const loadData = useCallback(async (url?: string, key?: string) => {
+    const u = url || supabaseUrl;
+    const k = key || supabaseKey;
+    if (!u || !k) {
       setLoading(false);
       setError(t('empty_db', language));
       return;
     }
     setLoading(true);
     setError(null);
+    setConfigOffset(0);
+    setProxyOffset(0);
+    setConfigHasMore(true);
+    setProxyHasMore(true);
     try {
+      api.configure(u, k);
       const [c, p, ch, s] = await Promise.all([
-        api.getConfigs(),
-        api.getProxies(),
+        api.getConfigs(PAGE_SIZE, 0),
+        api.getProxies(PAGE_SIZE, 0),
         api.getMonitoredChannels(),
         api.getSubscriptions(),
       ]);
-      setConfigs(c);
-      setProxies(p);
+      setConfigs(c.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i));
+      setProxies(p.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i));
       setChannels(ch);
       setSubscriptions(s);
+      setConfigHasMore(c.length >= PAGE_SIZE);
+      setProxyHasMore(p.length >= PAGE_SIZE);
+
+      Promise.all(
+        p.map(async (proxy) => {
+          const ms = await measurePing(proxy.server, proxy.port);
+          return { ...proxy, ping: ms };
+        })
+      ).then((pinged) => {
+        setProxies((prev) => {
+          const sorted = prev.map((p) => {
+            const found = pinged.find((pp) => pp.id === p.id);
+            return found ? { ...p, ping: found.ping } : p;
+          });
+          return [...sorted].sort((a, b) => (a.ping ?? Infinity) - (b.ping ?? Infinity));
+        });
+      });
+
+      Promise.all(
+        c.map(async (config) => {
+          const srv = extractServerFromConfig(config.raw_content);
+          if (!srv) return { ...config, ping: null as number | null };
+          const ms = await measurePing(srv.host, srv.port);
+          return { ...config, ping: ms };
+        })
+      ).then((pinged) => {
+        setConfigs((prev) => {
+          const sorted = prev.map((p) => {
+            const found = pinged.find((pp) => pp.id === p.id);
+            return found ? { ...p, ping: found.ping } : p;
+          });
+          return [...sorted].sort((a, b) => (a.ping ?? Infinity) - (b.ping ?? Infinity));
+        });
+      });
     } catch (e: any) {
       setError(e.message || 'Failed to load data');
     } finally {
@@ -82,15 +157,75 @@ export default function MainScreen() {
 
   useEffect(() => {
     if (supabaseUrl && supabaseKey) {
-      api.configure(supabaseUrl, supabaseKey);
-      loadData();
+      loadData(supabaseUrl, supabaseKey);
     }
   }, [supabaseUrl, supabaseKey]);
 
-  const handleApplySettings = () => {
-    setSupabaseUrl(settingsUrl.trim());
-    setSupabaseKey(settingsKey.trim());
+  const loadMoreConfigs = useCallback(async () => {
+    if (loadingMore || !configHasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextOffset = configOffset + PAGE_SIZE;
+      const more = await api.getConfigs(PAGE_SIZE, nextOffset);
+      setConfigs((prev) => { const ids = new Set(prev.map(x => x.id)); return [...prev, ...more.filter(x => !ids.has(x.id))]; });
+      setConfigOffset(nextOffset);
+      if (more.length < PAGE_SIZE) setConfigHasMore(false);
+
+      Promise.all(
+        more.map(async (config) => {
+          const srv = extractServerFromConfig(config.raw_content);
+          if (!srv) return { ...config, ping: null as number | null };
+          const ms = await measurePing(srv.host, srv.port);
+          return { ...config, ping: ms };
+        })
+      ).then((pinged) => {
+        setConfigs((prev) => {
+          const updated = prev.map((p) => {
+            const found = pinged.find((pp) => pp.id === p.id);
+            return found ? { ...p, ping: found.ping } : p;
+          });
+          return [...updated].sort((a, b) => (a.ping ?? Infinity) - (b.ping ?? Infinity));
+        });
+      });
+    } catch {}
+    setLoadingMore(false);
+  }, [configOffset, configHasMore, loadingMore]);
+
+  const loadMoreProxies = useCallback(async () => {
+    if (loadingMore || !proxyHasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextOffset = proxyOffset + PAGE_SIZE;
+      const more = await api.getProxies(PAGE_SIZE, nextOffset);
+      setProxies((prev) => { const ids = new Set(prev.map(x => x.id)); return [...prev, ...more.filter(x => !ids.has(x.id))]; });
+      setProxyOffset(nextOffset);
+      if (more.length < PAGE_SIZE) setProxyHasMore(false);
+
+      Promise.all(
+        more.map(async (proxy) => {
+          const ms = await measurePing(proxy.server, proxy.port);
+          return { ...proxy, ping: ms };
+        })
+      ).then((pinged) => {
+        setProxies((prev) => {
+          const updated = prev.map((p) => {
+            const found = pinged.find((pp) => pp.id === p.id);
+            return found ? { ...p, ping: found.ping } : p;
+          });
+          return [...updated].sort((a, b) => (a.ping ?? Infinity) - (b.ping ?? Infinity));
+        });
+      });
+    } catch {}
+    setLoadingMore(false);
+  }, [proxyOffset, proxyHasMore, loadingMore]);
+
+  const handleApplySettings = async () => {
+    const u = settingsUrl.trim();
+    const k = settingsKey.trim();
+    setSupabaseUrl(u);
+    setSupabaseKey(k);
     setShowSettings(false);
+    await saveStoredConfig(u, k);
   };
 
   const openSettings = () => {
@@ -99,30 +234,30 @@ export default function MainScreen() {
     setShowSettings(true);
   };
 
-  if (showSplash) {
-    return <SplashScreen onFinished={() => setShowSplash(false)} />;
-  }
+  const currentLang = language;
 
   const tabs: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'configs', label: t('configs', language), icon: 'layers-outline' },
-    { key: 'proxies', label: t('proxies', language), icon: 'key-outline' },
-    { key: 'admin', label: t('admin_panel', language), icon: 'shield-outline' },
+    { key: 'configs', label: t('configs', currentLang), icon: 'layers-outline' },
+    { key: 'proxies', label: t('proxies', currentLang), icon: 'key-outline' },
+    { key: 'admin', label: t('admin_panel', currentLang), icon: 'shield-outline' },
   ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
 
-      {/* Top Bar */}
       <View style={[styles.topBar, { backgroundColor: colors.bg }]}>
         <View style={[styles.logoIcon, { backgroundColor: `${colors.primary}1A` }]}>
           <Ionicons name="git-network-outline" size={20} color={colors.primary} />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={[styles.appTitle, { color: colors.text }]}>{t('app_title', language)}</Text>
-          <Text style={[styles.appSubtitle, { color: colors.subText }]}>{t('subtitle', language)}</Text>
+          <Text style={[styles.appTitle, { color: colors.text, fontFamily: fontFamilyBold }]}>{t('app_title', currentLang)}</Text>
+          <Text style={[styles.appSubtitle, { color: colors.subText, fontFamily }]}>{t('subtitle', currentLang)}</Text>
         </View>
-        <TouchableOpacity onPress={() => setLanguage(language === 'EN' ? 'FA' : 'EN')} style={styles.actionBtn}>
+        <TouchableOpacity
+          onPress={() => setLanguage(currentLang === 'EN' ? 'FA' : 'EN')}
+          style={styles.actionBtn}
+        >
           <Ionicons name="language-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setDarkMode(!darkMode)} style={styles.actionBtn}>
@@ -133,7 +268,6 @@ export default function MainScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centered}>
@@ -142,22 +276,23 @@ export default function MainScreen() {
         ) : error ? (
           <View style={styles.centered}>
             <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-            <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
+            <Text style={[styles.errorText, { color: colors.text, fontFamily }]}>{error}</Text>
             <TouchableOpacity
               style={[styles.retryBtn, { backgroundColor: colors.primary }]}
-              onPress={loadData}
+              onPress={() => loadData()}
             >
-              <Text style={{ color: colors.bg, fontWeight: '600' }}>{t('retry', language)}</Text>
+              <Text style={{ color: colors.bg, fontWeight: '600', fontFamily }}>{t('retry', currentLang)}</Text>
             </TouchableOpacity>
           </View>
         ) : tab === 'configs' ? (
           <FlatList
             data={configs}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
+            keyExtractor={(item) => `config_${item.id}`}
+            renderItem={({ item, index }) => (
               <ConfigItemCard
                 config={item}
                 colors={colors}
+                index={index}
                 onCopy={() => {
                   Clipboard.setString(item.raw_content);
                   Alert.alert('Copied!');
@@ -171,26 +306,48 @@ export default function MainScreen() {
             )}
             contentContainerStyle={{ paddingVertical: 8 }}
             ListHeaderComponent={
-              <TipBanner text={t('configs_tip', language)} icon="information-circle-outline" color={colors.primary} />
+              <TipBanner text={t('configs_tip', currentLang)} icon="information-circle-outline" color={colors.primary} fontFamily={fontFamily} />
+            }
+            ListFooterComponent={
+              configHasMore ? (
+                <TouchableOpacity
+                  style={[styles.loadMoreBtn, { borderColor: colors.border }]}
+                  onPress={loadMoreConfigs}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.loadMoreText, { color: colors.primary, fontFamily }]}>
+                      {t('load_more', currentLang)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ) : configs.length > 0 ? (
+                <Text style={[styles.endText, { color: colors.subText, fontFamily }]}>{t('end_of_list', currentLang)}</Text>
+              ) : null
             }
             ListEmptyComponent={
-              <Text style={[styles.emptyText, { color: colors.subText }]}>{t('empty_db', language)}</Text>
+              <Text style={[styles.emptyText, { color: colors.subText, fontFamily }]}>{t('empty_db', currentLang)}</Text>
             }
           />
         ) : tab === 'proxies' ? (
           <FlatList
             data={proxies}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
+            keyExtractor={(item) => `proxy_${item.id}`}
+            renderItem={({ item, index }) => (
               <ProxyItemCard
                 proxy={item}
                 colors={colors}
+                index={index}
                 onCopy={() => {
-                  Clipboard.setString(item.tg_link);
+                  const link = `tg://proxy?server=${item.server}&port=${item.port}&secret=${item.secret}`;
+                  Clipboard.setString(link);
                   Alert.alert('Copied!');
                 }}
                 onConnect={() => {
-                  Linking.openURL(item.tg_link).catch(() =>
+                  const link = `tg://proxy?server=${item.server}&port=${item.port}&secret=${item.secret}`;
+                  Linking.openURL(link).catch(() =>
                     Alert.alert('Telegram not installed')
                   );
                 }}
@@ -198,16 +355,35 @@ export default function MainScreen() {
             )}
             contentContainerStyle={{ paddingVertical: 8 }}
             ListHeaderComponent={
-              <TipBanner text={t('proxies_tip', language)} icon="flash-outline" color={colors.primary} />
+              <TipBanner text={t('proxies_tip', currentLang)} icon="flash-outline" color={colors.primary} fontFamily={fontFamily} />
+            }
+            ListFooterComponent={
+              proxyHasMore ? (
+                <TouchableOpacity
+                  style={[styles.loadMoreBtn, { borderColor: colors.border }]}
+                  onPress={loadMoreProxies}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.loadMoreText, { color: colors.primary, fontFamily }]}>
+                      {t('load_more', currentLang)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ) : proxies.length > 0 ? (
+                <Text style={[styles.endText, { color: colors.subText, fontFamily }]}>{t('end_of_list', currentLang)}</Text>
+              ) : null
             }
             ListEmptyComponent={
-              <Text style={[styles.emptyText, { color: colors.subText }]}>{t('empty_db', language)}</Text>
+              <Text style={[styles.emptyText, { color: colors.subText, fontFamily }]}>{t('empty_db', currentLang)}</Text>
             }
           />
         ) : (
           <AdminPanel
             colors={colors}
-            language={language}
+            language={currentLang}
             channels={channels}
             subscriptions={subscriptions}
             onRefresh={loadData}
@@ -215,8 +391,7 @@ export default function MainScreen() {
         )}
       </View>
 
-      {/* Bottom Tabs */}
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom || 8 }]}>
         {tabs.map((t) => (
           <TouchableOpacity
             key={t.key}
@@ -228,27 +403,21 @@ export default function MainScreen() {
               size={22}
               color={tab === t.key ? colors.primary : colors.subText}
             />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: tab === t.key ? colors.primary : colors.subText },
-              ]}
-            >
+            <Text style={[styles.tabLabel, { color: tab === t.key ? colors.primary : colors.subText, fontFamily }]}>
               {t.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Settings Modal */}
       <Modal visible={showSettings} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
             <Ionicons name="server-outline" size={28} color={colors.primary} style={{ alignSelf: 'center' }} />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('db_setup', language)}</Text>
-            <Text style={[styles.modalDesc, { color: colors.subText }]}>{t('dialog_desc', language)}</Text>
+            <Text style={[styles.modalTitle, { color: colors.text, fontFamily: fontFamilyBold }]}>{t('db_setup', currentLang)}</Text>
+            <Text style={[styles.modalDesc, { color: colors.subText, fontFamily }]}>{t('dialog_desc', currentLang)}</Text>
             <TextInput
-              style={[styles.modalInput, { color: colors.text, borderColor: colors.border }]}
+              style={[styles.modalInput, { color: colors.text, borderColor: colors.border, fontFamily }]}
               placeholder="Supabase URL"
               placeholderTextColor={colors.subText}
               value={settingsUrl}
@@ -256,7 +425,7 @@ export default function MainScreen() {
               autoCapitalize="none"
             />
             <TextInput
-              style={[styles.modalInput, { color: colors.text, borderColor: colors.border }]}
+              style={[styles.modalInput, { color: colors.text, borderColor: colors.border, fontFamily }]}
               placeholder="API Key"
               placeholderTextColor={colors.subText}
               value={settingsKey}
@@ -269,13 +438,13 @@ export default function MainScreen() {
                 style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
                 onPress={() => setShowSettings(false)}
               >
-                <Text style={{ color: colors.text }}>{t('cancel', language)}</Text>
+                <Text style={{ color: colors.text, fontFamily }}>{t('cancel', currentLang)}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: colors.primary }]}
                 onPress={handleApplySettings}
               >
-                <Text style={{ color: colors.bg, fontWeight: '600' }}>{t('apply', language)}</Text>
+                <Text style={{ color: colors.bg, fontWeight: '600', fontFamily }}>{t('apply', currentLang)}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -285,11 +454,11 @@ export default function MainScreen() {
   );
 }
 
-function TipBanner({ text, icon, color }: { text: string; icon: keyof typeof Ionicons.glyphMap; color: string }) {
+function TipBanner({ text, icon, color, fontFamily }: { text: string; icon: keyof typeof Ionicons.glyphMap; color: string; fontFamily?: string }) {
   return (
     <View style={[styles.tipBanner, { backgroundColor: `${color}12` }]}>
       <Ionicons name={icon} size={16} color={color} />
-      <Text style={[styles.tipText, { color: `${color}BF` }]}>{text}</Text>
+      <Text style={[styles.tipText, { color: `${color}BF`, fontFamily }]}>{text}</Text>
     </View>
   );
 }
@@ -334,10 +503,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tipText: { fontSize: 12, flex: 1 },
+  loadMoreBtn: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  loadMoreText: { fontSize: 13, fontWeight: '600' },
+  endText: { textAlign: 'center', fontSize: 11, marginTop: 8, marginBottom: 16 },
   bottomBar: {
     flexDirection: 'row',
-    borderTopWidth: 0.5,
-    paddingBottom: Platform.OS === 'ios' ? 8 : 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 8,
   },
   tabItem: {
